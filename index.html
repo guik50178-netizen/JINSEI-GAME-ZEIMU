@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>人生ゲーム 税務台帳</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#EEF2F1">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="税務台帳">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+Antique:wght@400;500;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -38,7 +46,7 @@
     background:var(--white); border:1px solid var(--paper-line); padding:8px 12px; margin-bottom:18px; font-size:.78rem;
   }
   .lap-bar b{ font-family:'JetBrains Mono',monospace; font-size:.95rem; }
-  .lap-bar button{ border:1px solid var(--ink); background:var(--white); color:var(--ink); padding:5px 10px; font-size:.72rem; cursor:pointer; }
+  .lap-bar button{ border:1px solid var(--ink); background:var(--white); color:var(--ink); padding:5px 10px; font-size:.72rem; cursor:pointer; white-space:nowrap; }
   section{margin-bottom:22px;}
   .section-label{
     font-size:.68rem; letter-spacing:.1em; color:var(--ink-soft);
@@ -118,9 +126,9 @@
     <div class="sub" id="scale-sub">1/500換算 課税ルール</div>
   </div>
 
-  <div class="lap-bar" style="margin-bottom:8px;">
+  <div class="lap-bar" style="margin-bottom:8px; flex-wrap:wrap; gap:8px;">
     <span>データの保存・復元（こまめに書き出し推奨）</span>
-    <span style="display:flex; gap:6px;">
+    <span style="display:flex; gap:6px; margin-left:auto;">
       <button id="export-btn">書き出す</button>
       <button id="import-btn">読み込む</button>
       <button id="new-game-btn">新規ゲーム</button>
@@ -1909,6 +1917,13 @@ document.querySelectorAll('section').forEach(sec => {
 
 normalizeState();
 loadState();
+
+// アプリとして使えるようにする(インストール・オフライン対応)。公開サイト(http/https)でのみ有効で、ファイルを直接開いた場合は何もしない。
+try{
+  if(typeof navigator !== 'undefined' && 'serviceWorker' in navigator && typeof location !== 'undefined' && /^https?:$/.test(location.protocol)){
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+}catch(e){}
 </script>
 </body>
 </html>
