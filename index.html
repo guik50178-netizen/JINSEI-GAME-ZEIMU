@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人生ゲーム 税務台帳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+Antique:wght@400;500;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EEF2F1;
+    --paper-line: #C7CDD1;
+    --ink: #16324F;
+    --ink-soft: #4A6178;
+    --hanko: #B3382C;
+    --gold: #B98B2E;
+    --sage: #5F8267;
+    --white: #FFFFFF;
+    --radius: 2px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic Antique', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:480px; margin:0 auto; padding:20px 16px 60px; }
+  .masthead{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom:3px double var(--ink); padding-bottom:10px; margin-bottom:18px;
+  }
+  .masthead h1{ font-family:'Shippori Mincho', serif; font-weight:700; font-size:1.4rem; letter-spacing:.04em; margin:0; }
+  .masthead .sub{ font-size:.66rem; color:var(--ink-soft); letter-spacing:.06em; }
+  .lap-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--white); border:1px solid var(--paper-line); padding:8px 12px; margin-bottom:18px; font-size:.78rem;
+  }
+  .lap-bar b{ font-family:'JetBrains Mono',monospace; font-size:.95rem; }
+  .lap-bar button{ border:1px solid var(--ink); background:var(--white); color:var(--ink); padding:5px 10px; font-size:.72rem; cursor:pointer; }
+  section{margin-bottom:22px;}
+  .section-label{
+    font-size:.68rem; letter-spacing:.1em; color:var(--ink-soft);
+    border-bottom:1px solid var(--paper-line); padding-bottom:6px; margin-bottom:10px;
+    cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none;
+  }
+  .section-label::after{ content:'▾'; font-size:.7rem; color:var(--ink-soft); transition:transform .15s; flex-shrink:0; margin-left:8px; }
+  section.collapsed .section-label::after{ transform:rotate(-90deg); }
+  section.collapsed .section-label{ margin-bottom:0; border-bottom:none; padding-bottom:0; }
+  section.collapsed .section-body{ display:none; }
+  .player-row{ display:flex; gap:8px; margin-bottom:8px; }
+  .player-row input[type=text]{ flex:1; }
+  input[type=text], input[type=number], select{
+    width:100%; padding:9px 10px; border:1px solid var(--paper-line); background:var(--white);
+    font-family:'Zen Kaku Gothic Antique',sans-serif; font-size:.85rem; color:var(--ink); border-radius:var(--radius);
+  }
+  input:focus, select:focus{outline:2px solid var(--gold); outline-offset:1px;}
+  .btn{ padding:9px 14px; border:1px solid var(--ink); background:var(--ink); color:var(--white); font-size:.8rem; font-weight:700; cursor:pointer; border-radius:var(--radius); }
+  .btn.ghost{ background:var(--white); color:var(--ink); }
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  #player-cards{ display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity; }
+  .player-card{ background:var(--white); border:1px solid var(--paper-line); padding:12px 14px; margin-bottom:0; flex:0 0 auto; width:230px; scroll-snap-align:start; }
+  .player-card-top{ display:flex; justify-content:space-between; align-items:baseline; }
+  .player-card-top .name{ font-weight:700; font-size:.92rem; }
+  .player-card-top .cash{ font-family:'JetBrains Mono',monospace; font-size:1.15rem; font-weight:700; }
+  .delete-player-btn{ border:1px solid var(--paper-line); background:var(--white); color:var(--hanko); font-size:.7rem; width:22px; height:22px; line-height:1; cursor:pointer; border-radius:var(--radius); padding:0; }
+  .player-card .meta{ display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:6px; font-size:.66rem; color:var(--ink-soft); font-family:'JetBrains Mono',monospace; }
+  .family-row{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px; padding-top:8px; border-top:1px solid var(--paper-line); }
+  .family-btn{ border:1px solid var(--paper-line); background:var(--paper); color:var(--ink); font-size:.68rem; padding:4px 8px; cursor:pointer; border-radius:var(--radius); }
+  .family-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .dependent-stepper{ display:flex; align-items:center; gap:6px; font-size:.68rem; color:var(--ink-soft); }
+  .dependent-stepper b{ font-family:'JetBrains Mono',monospace; color:var(--ink); min-width:14px; text-align:center; }
+  form.entry{ background:var(--white); border:1px solid var(--paper-line); padding:14px; }
+  .entry-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px 10px; margin-bottom:10px; }
+  .entry-grid .field{ margin-bottom:0; min-width:0; }
+  .entry-grid .field.hidden-cell{ visibility:hidden; }
+  .grid-btn{ align-self:end; padding:9px 6px; font-size:.74rem; }
+  .field{margin-bottom:10px;}
+  .field label{ display:block; font-size:.68rem; color:var(--ink-soft); margin-bottom:4px; letter-spacing:.03em; }
+  .field-row{display:flex; gap:8px;}
+  .field-row .field{flex:1;}
+  .category-note{ font-size:.72rem; color:var(--ink-soft); background:var(--paper); padding:8px 10px; border-left:3px solid var(--gold); margin-bottom:10px; line-height:1.55; white-space:pre-line; }
+  .calc-result{ margin-top:12px; border:1px solid var(--ink); padding:10px 12px; background:var(--paper); }
+  .calc-result .line{ display:flex; justify-content:space-between; font-size:.75rem; padding:3px 0; font-family:'JetBrains Mono',monospace; }
+  .calc-result .line.total{ border-top:1px dashed var(--paper-line); margin-top:4px; padding-top:6px; font-weight:700; font-size:.86rem; }
+  .calc-result .line.tax span:last-child{color:var(--hanko);}
+  .calc-result .line.nisa span:last-child{color:var(--sage);}
+  .stamp{ display:inline-block; border:2px solid var(--hanko); color:var(--hanko); font-size:.6rem; font-weight:700; padding:2px 6px; letter-spacing:.05em; transform:rotate(-3deg); margin-left:6px; }
+  .actions-row{ display:flex; gap:8px; margin-top:12px; }
+  .actions-row .btn{flex:1;}
+  .history{ background:var(--white); border:1px solid var(--paper-line); }
+  .history-item{ display:grid; grid-template-columns:1fr auto; gap:2px 10px; padding:9px 12px; border-bottom:1px solid var(--paper-line); font-size:.74rem; }
+  .history-item:last-child{border-bottom:none;}
+  .history-item .h-label{color:var(--ink);}
+  .history-item .h-player{color:var(--ink-soft); font-size:.66rem;}
+  .history-item .h-amount{ font-family:'JetBrains Mono',monospace; text-align:right; font-weight:700; }
+  .history-item .h-amount.plus{color:var(--sage);}
+  .history-item .h-amount.minus{color:var(--hanko);}
+  .empty{ text-align:center; color:var(--ink-soft); font-size:.78rem; padding:20px 0; }
+  .stock-card{ background:var(--white); border:1px solid var(--paper-line); padding:10px 12px; margin-bottom:8px; }
+  .stock-card-top{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  .stock-card-top .stock-name{ font-weight:700; font-size:.84rem; }
+  .stock-card-top .stock-price{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1rem; }
+  .stock-card .stock-change{ font-family:'JetBrains Mono',monospace; font-size:.7rem; }
+  .stock-card .stock-change.up{ color:var(--sage); }
+  .stock-card .stock-change.down{ color:var(--hanko); }
+  .stock-chart{ width:100%; height:44px; display:block; }
+  .holding-row{ display:flex; justify-content:space-between; font-size:.72rem; padding:5px 0; border-bottom:1px solid var(--paper-line); font-family:'JetBrains Mono',monospace; }
+  .holding-row:last-child{ border-bottom:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <h1>人生ゲーム税務台帳</h1>
+    <div class="sub" id="scale-sub">1/500換算 課税ルール</div>
+  </div>
+
+  <div class="lap-bar" style="margin-bottom:8px;">
+    <span>データの保存・復元（こまめに書き出し推奨）</span>
+    <span style="display:flex; gap:6px;">
+      <button id="export-btn">書き出す</button>
+      <button id="import-btn">読み込む</button>
+      <button id="new-game-btn">新規ゲーム</button>
+    </span>
+  </div>
+  <div id="save-status" style="font-size:.68rem; color:var(--ink-soft); margin:0 0 8px; line-height:1.5;"></div>
+  <textarea id="export-area" style="display:none; width:100%; height:90px; font-family:'JetBrains Mono',monospace; font-size:.68rem; margin-bottom:18px; padding:8px; border:1px solid var(--paper-line);" placeholder="ここにエクスポートされた文字列が表示されます。読み込む場合はここに貼り付けてから「読み込む」を押してください。"></textarea>
+
+  <div class="lap-bar">
+    <span>現在 <b id="lap-count">1</b> 周目（全員が1回ずつターンを終えると次の周へ、1周＝1年）</span>
+  </div>
+  <div class="lap-bar" style="margin-top:6px;">
+    <span>現在のターン：<b id="turn-player">-</b></span>
+    <button id="end-turn-btn">ターン終了 →</button>
+  </div>
+  <div class="lap-bar" style="margin-top:6px;">
+    <span>操作を間違えた場合</span>
+    <button id="undo-btn" disabled>元に戻す ↺</button>
+  </div>
+
+  <section id="sec-event">
+    <div class="section-label">イベント入力</div>
+    <div class="section-body">
+    <form class="entry" id="entry-form">
+      <div class="entry-grid">
+        <div class="field">
+          <label>対象プレイヤー</label>
+          <select id="ev-player"></select>
+        </div>
+        <div class="field">
+          <label>イベント種別</label>
+          <select id="ev-category">
+            <option value="salary">給与所得系（給料・副業・売電など）</option>
+            <option value="onetime">一時所得系（懸賞・賞金・保険満期など）</option>
+            <option value="investor">投資家配当（配当・利子）</option>
+            <option value="nontax">非課税収入（保険金・元本の戻りなど）</option>
+            <option value="gift">ご祝儀（他のプレイヤーが等分して支払う）</option>
+            <option value="expense">支出（購入代金・保険料・利息）</option>
+          </select>
+        </div>
+        <div class="field" id="field-amount">
+          <label id="label-amount">受取額 / 支出額</label>
+          <input type="number" id="ev-amount" placeholder="0">
+        </div>
+        <div class="field" id="field-cost">
+          <div id="cost-input-group">
+            <label id="label-cost">取得原価 / 払込額</label>
+            <input type="number" id="ev-cost" placeholder="0">
+          </div>
+          <div id="tax-exempt-group" style="display:none;">
+            <label id="label-expense-type">支出の種類</label>
+            <select id="ev-expense-type">
+              <option value="normal">通常の支出</option>
+              <option value="exempt">非課税品目（自動車保険料・火災保険料など）</option>
+              <option value="life_insurance">生命保険料（所得控除の対象）</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" class="btn ghost grid-btn" id="calc-btn">税額を計算</button>
+        <button type="button" class="btn grid-btn" id="apply-btn" disabled>台帳に反映する</button>
+      </div>
+
+      <div class="category-note" id="category-note"></div>
+      <div class="calc-result" id="calc-result" style="display:none;"></div>
+    </form>
+    </div>
+  </section>
+
+  <section id="sec-market">
+    <div class="section-label">株式市場</div>
+    <div class="section-body">
+    <div id="market-list"></div>
+    <div id="market-news" style="margin-top:8px;"></div>
+
+    <div class="entry" style="margin-top:14px;">
+      <div class="field">
+        <label>取引プレイヤー</label>
+        <select id="market-player"></select>
+      </div>
+      <div class="field">
+        <label>銘柄</label>
+        <select id="market-stock"></select>
+      </div>
+      <div class="category-note" id="market-preview">銘柄を選んでください（常に1単元＝10株で取引）</div>
+      <div class="actions-row">
+        <button type="button" class="btn ghost" id="market-buy-btn">購入（1単元）</button>
+        <button type="button" class="btn ghost" id="market-sell-btn">売却（1単元）</button>
+      </div>
+    </div>
+
+    <div id="holdings-list" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <section id="sec-realestate">
+    <div class="section-label">不動産</div>
+    <div class="section-body">
+    <div id="realestate-list"></div>
+
+    <div class="entry" style="margin-top:14px;">
+      <div class="field">
+        <label>対象プレイヤー</label>
+        <select id="re-player"></select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>物件名</label>
+          <input type="text" id="re-name" placeholder="例：マイホーム">
+        </div>
+        <div class="field">
+          <label>購入額</label>
+          <input type="number" id="re-price" placeholder="0">
+        </div>
+      </div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:.72rem; color:var(--ink-soft); margin-bottom:10px; cursor:pointer;">
+        <input type="checkbox" id="re-is-residence" style="width:auto;">
+        自分が住むマイホーム（売却時に特別控除の対象）
+      </label>
+      <button type="button" class="btn ghost" id="re-buy-btn" style="width:100%;">購入（所持金が足りない分は住宅ローン）</button>
+    </div>
+
+    <div class="entry" style="margin-top:10px;">
+      <div class="field">
+        <label>住宅ローン返済額（対象プレイヤーは上の選択に従います）</label>
+        <input type="number" id="loan-repay-amount" placeholder="0">
+      </div>
+      <div class="category-note" id="loan-preview">ローン残高なし</div>
+      <button type="button" class="btn ghost" id="loan-repay-btn" style="width:100%;">返済</button>
+    </div>
+
+    <div class="entry" style="margin-top:10px;">
+      <div class="field">
+        <label>売却する物件</label>
+        <select id="re-property"></select>
+      </div>
+      <div class="field">
+        <label>売却額（盤面の指示に従い倍率をかけた後の金額）</label>
+        <input type="number" id="re-sale-amount" placeholder="0">
+      </div>
+      <div class="category-note" id="re-preview">物件を選んでください</div>
+      <button type="button" class="btn ghost" id="re-sell-btn" style="width:100%;">売却</button>
+    </div>
+    </div>
+  </section>
+
+  <section id="sec-treasure">
+    <div class="section-label">お宝</div>
+    <div class="section-body">
+    <div id="treasure-list"></div>
+
+    <div class="entry" style="margin-top:14px;">
+      <div class="field">
+        <label>対象プレイヤー</label>
+        <select id="tr-player"></select>
+      </div>
+      <div class="field">
+        <label>お宝の名前</label>
+        <input type="text" id="tr-name" placeholder="例：高級はちみつ">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>購入額（入手時に支払った額。無料なら0）</label>
+          <input type="number" id="tr-cost" placeholder="0">
+        </div>
+        <div class="field">
+          <label>価値（ゴール時の売却額）</label>
+          <input type="number" id="tr-value" placeholder="0">
+        </div>
+      </div>
+      <div class="category-note">購入額は入手時に支払い、お宝はゴールまで保有します。ゴール時にすべて売却し、売却額の合計と購入額の合計の差額を一時所得として課税します。</div>
+      <button type="button" class="btn ghost" id="tr-add-btn" style="width:100%;">お宝を入手</button>
+    </div>
+    </div>
+  </section>
+
+  <section id="player-setup">
+    <div class="section-label">プレイヤー登録</div>
+    <div class="section-body">
+    <div class="player-row">
+      <input type="text" id="new-player-name" placeholder="プレイヤー名">
+      <input type="number" id="new-player-cash" placeholder="所持金" style="width:110px;">
+      <button class="btn" id="add-player">追加</button>
+    </div>
+    </div>
+  </section>
+
+  <section id="sec-status">
+    <div class="section-label">現在の状況</div>
+    <div class="section-body">
+    <div id="player-cards"></div>
+    </div>
+  </section>
+
+  <section id="sec-results" class="collapsed">
+    <div class="section-label">結果画面（純資産ランキング）</div>
+    <div class="section-body">
+    <div id="results-list"></div>
+    </div>
+  </section>
+
+  <section id="sec-summary" class="collapsed">
+    <div class="section-label">集計（納税額まとめ）</div>
+    <div class="section-body">
+    <div id="summary-list"></div>
+    </div>
+  </section>
+
+  <section id="sec-scale" class="collapsed">
+    <div class="section-label">スケール設定（税の基準額の換算）</div>
+    <div class="section-body">
+    <div class="entry">
+      <div class="category-note" id="scale-status" style="white-space:pre-line;"></div>
+      <div class="field">
+        <label>新しいスケール（現実の金額 ÷ この値 ＝ ゲーム内の基準額。小さいほど税の基準額が大きくなり、税負担は軽くなります）</label>
+        <input type="number" id="scale-input" min="0.01" step="any">
+      </div>
+      <div class="category-note" id="scale-preview" style="white-space:pre-line;"></div>
+      <button type="button" class="btn ghost" id="scale-apply-btn" style="width:100%;">このスケールで台帳を再計算</button>
+    </div>
+    </div>
+  </section>
+
+  <section id="sec-history" class="collapsed">
+    <div class="section-label">履歴</div>
+    <div class="section-body">
+    <div class="history" id="history-list">
+      <div class="empty">まだ記録がありません</div>
+    </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ---------- スケール設定 ----------
+// 現実の金額 ÷ SCALE ＝ ゲーム内の基準額（税率表・控除額など）。既定は500。
+const REAL = {
+  salaryBrackets: [[1950000,0.05],[3300000,0.10],[6950000,0.20],[9000000,0.23],[18000000,0.33],[40000000,0.40],[Infinity,0.45]],
+  assetBrackets: [[10000000,0.10],[30000000,0.15],[50000000,0.20],[100000000,0.30],[200000000,0.40],[300000000,0.45],[600000000,0.50],[Infinity,0.55]],
+  specialDeduction: 500000,      // 一時所得の特別控除
+  basicDeduction: 480000,        // 所得税の基礎控除
+  spouseDeduction: 380000,       // 配偶者控除
+  dependentDeduction: 380000,    // 扶養控除(1人あたり)
+  assetBasicDeduction: 36000000, // 相続税の基礎控除(法定相続人1人分)
+  nisaLimit: 18000000,           // NISA生涯投資枠
+  residenceDeduction: 30000000,  // マイホーム売却の特別控除
+  pensionBasicFull: 780000,      // 満額の老齢基礎年金(年額)
+  // 速算表: [収入の上限, 収入に掛ける率, 加算額]
+  salaryDed:  [[1625000,0,550000],[1800000,0.4,-100000],[3600000,0.3,80000],[6600000,0.2,440000],[8500000,0.1,1100000],[Infinity,0,1950000]],
+  pensionDed: [[3300000,0,1100000],[4100000,0.25,275000],[7700000,0.15,685000],[10000000,0.05,1455000],[Infinity,0,1955000]],
+  lifeDed:    [[20000,1,0],[40000,0.5,10000],[80000,0.25,20000],[Infinity,0,40000]]
+};
+const DEFAULT_SCALE = 500;
+let SCALE = DEFAULT_SCALE;
+let SALARY_BRACKETS, ASSET_BRACKETS, SPECIAL_DEDUCTION, BASIC_DEDUCTION, SPOUSE_DEDUCTION, DEPENDENT_DEDUCTION,
+    ASSET_BASIC_DEDUCTION, NISA_LIFETIME_LIMIT, REAL_ESTATE_RESIDENCE_DEDUCTION, PENSION_BASIC_FULL;
+
+function scaleBrackets(brackets){ return brackets.map(([t, r]) => [t === Infinity ? Infinity : t / SCALE, r]); }
+function applyScale(divisor){
+  SCALE = divisor > 0 ? divisor : DEFAULT_SCALE;
+  SALARY_BRACKETS = scaleBrackets(REAL.salaryBrackets);
+  ASSET_BRACKETS = scaleBrackets(REAL.assetBrackets);
+  SPECIAL_DEDUCTION = REAL.specialDeduction / SCALE;
+  BASIC_DEDUCTION = REAL.basicDeduction / SCALE;
+  SPOUSE_DEDUCTION = REAL.spouseDeduction / SCALE;
+  DEPENDENT_DEDUCTION = REAL.dependentDeduction / SCALE;
+  ASSET_BASIC_DEDUCTION = REAL.assetBasicDeduction / SCALE;
+  NISA_LIFETIME_LIMIT = REAL.nisaLimit / SCALE;
+  REAL_ESTATE_RESIDENCE_DEDUCTION = REAL.residenceDeduction / SCALE;
+  PENSION_BASIC_FULL = REAL.pensionBasicFull / SCALE;
+}
+applyScale(DEFAULT_SCALE);
+
+// 速算表による控除額の計算(収入もゲーム内の金額)
+function tableDeduction(table, x){
+  for(const [limit, slope, add] of table){
+    if(x <= limit / SCALE) return x * slope + add / SCALE;
+  }
+  return 0;
+}
+
+// ---------- 定数 ----------
+const RESIDENT_TAX_RATE = 0.10;      // 住民税(所得割一律10%)
+const RECONSTRUCTION_RATE = 0.021;   // 復興特別所得税(所得税額の2.1%)
+const LOSS_CARRY_EXPIRY_LAPS = 3;
+const CAPITAL_GAINS_RATE = 0.20;
+const REAL_ESTATE_LONG_TERM_LAPS = 5;  // 保有期間がこれを超えると長期譲渡
+const REAL_ESTATE_SHORT_RATE = 0.39;   // 短期譲渡(所得税30%+住民税9%相当)
+const REAL_ESTATE_LONG_RATE = 0.20;    // 長期譲渡(所得税15%+住民税5%相当)
+
+// 不動産譲渡の税額計算(状態は変更しない)
+function calcRealEstateSale(property, saleAmount, currentLap){
+  const heldLaps = currentLap - property.purchaseLap;
+  const isLongTerm = heldLaps > REAL_ESTATE_LONG_TERM_LAPS;
+  const rate = isLongTerm ? REAL_ESTATE_LONG_RATE : REAL_ESTATE_SHORT_RATE;
+  const gain = saleAmount - property.cost;
+  const deduction = (property.isPrimaryResidence && gain > 0) ? Math.min(gain, REAL_ESTATE_RESIDENCE_DEDUCTION) : 0;
+  const taxableGain = Math.max(0, gain - deduction);
+  const tax = taxableGain * rate;
+  const net = saleAmount - tax;
+  return { heldLaps, isLongTerm, gain, deduction, taxableGain, tax, net, rate };
+}
+const UNIT_SIZE = 10; // 株式売買の1単元あたりの株数
+const TRADING_FEE_RATE = 0.005; // 売買手数料率(0.5%)
+const DEBT_INTEREST_RATE = 0.15; // 所持金がマイナスの場合の借金利息(年率、消費者金融の上限金利相当)
+const MORTGAGE_INTEREST_RATE = 0.02; // 住宅ローンの利息(1周=1年あたり、固定金利の住宅ローン相当)
+const CONSUMPTION_TAX_RATE = 0.10;
+
+function progressiveTax(amount, brackets){
+  let tax = 0, prev = 0;
+  for(const [threshold, rate] of brackets){
+    if(amount > threshold){ tax += (threshold - prev) * rate; prev = threshold; }
+    else { tax += (amount - prev) * rate; break; }
+  }
+  return tax;
+}
+
+// 給与所得控除(実際の速算表をスケールで換算)
+function salaryDeduction(income){ return tableDeduction(REAL.salaryDed, income); }
+
+// 公的年金等控除(65歳以上・その他所得1,000万円以下の場合の速算表をスケールで換算)
+function pensionDeduction(income){ return tableDeduction(REAL.pensionDed, income); }
+
+// 老後入り後は年金控除、現役中は給与所得控除を適用
+function laborIncomeDeduction(income, player){
+  return player.isRetired ? pensionDeduction(income) : salaryDeduction(income);
+}
+
+// プレイヤーの人的控除合計(基礎控除+配偶者控除+扶養控除)
+function personalDeductionTotal(player){
+  const spouse = player.hasSpouse ? SPOUSE_DEDUCTION : 0;
+  const dependents = (player.numDependents || 0) * DEPENDENT_DEDUCTION;
+  return BASIC_DEDUCTION + spouse + dependents;
+}
+
+// 生命保険料控除(実際の速算表をスケールで換算、一般生命保険料の枠のみ簡易対応)
+function lifeInsuranceDeduction(premium){ return tableDeduction(REAL.lifeDed, premium); }
+
+// 給与収入・一時所得の課税対象額の累計から課税所得を求める
+function taxableIncome(salaryRaw, onetimeBase, player){
+  const taxableSalary = Math.max(0, salaryRaw - laborIncomeDeduction(salaryRaw, player));
+  const insuranceDed = lifeInsuranceDeduction(player.yearLifeInsurancePremium || 0);
+  return Math.max(0, taxableSalary + onetimeBase - personalDeductionTotal(player) - insuranceDed);
+}
+
+// 課税所得から所得税+住民税+復興特別所得税の合計を求める
+function totalTaxFromTaxableIncome(ti){
+  const incomeTax = progressiveTax(ti, SALARY_BRACKETS);
+  const residentTax = ti * RESIDENT_TAX_RATE;
+  const reconstruction = incomeTax * RECONSTRUCTION_RATE;
+  return { incomeTax, residentTax, reconstruction, total: incomeTax + residentTax + reconstruction };
+}
+
+// 投資家配当・配当所得の計算(NISA適用を含む、状態は変更しない)
+function calcInvestorIncome(player, amount, isComplex){
+  let taxable = amount, nisaApplied = 0;
+  if(isComplex){
+    const nisaRoom = Math.max(0, NISA_LIFETIME_LIMIT - player.nisaUsed);
+    nisaApplied = Math.min(nisaRoom, amount);
+    taxable = amount - nisaApplied;
+  }
+  const tax = taxable * CAPITAL_GAINS_RATE;
+  return { taxable, nisaApplied, tax, net: amount - tax };
+}
+
+// calcInvestorIncomeの結果を実際にNISA使用枠へ反映する
+function applyInvestorIncomeEffects(player, nisaApplied, isComplex){
+  if(!isComplex || nisaApplied <= 0) return;
+  player.nisaUsed += nisaApplied;
+}
+
+// 株式譲渡益の計算(繰越損失相殺・NISA適用を含む、状態は変更しない)
+function calcStockSale(player, amount, cost, isComplex){
+  let gain = amount - cost, lossOffsetUsed = 0, nisaApplied = 0, taxable = 0, tax = 0;
+  if(gain > 0){
+    taxable = gain;
+    if(isComplex && player.lossCarry > 0){
+      lossOffsetUsed = Math.min(player.lossCarry, taxable);
+      taxable -= lossOffsetUsed;
+    }
+    if(isComplex && taxable > 0){
+      const nisaRoom = Math.max(0, NISA_LIFETIME_LIMIT - player.nisaUsed);
+      nisaApplied = Math.min(nisaRoom, taxable);
+      taxable -= nisaApplied;
+    }
+    tax = taxable * CAPITAL_GAINS_RATE;
+  }
+  const net = amount - cost - tax;
+  return { gain, lossOffsetUsed, nisaApplied, taxable, tax, net };
+}
+
+// calcStockSaleの結果を実際にプレイヤーの繰越損失・NISA使用枠へ反映する
+function applyStockSaleEffects(player, amount, cost, isComplex){
+  if(!isComplex) return;
+  const gain = amount - cost;
+  if(gain > 0){
+    let remaining = gain;
+    if(player.lossCarry > 0){
+      const used = Math.min(player.lossCarry, remaining);
+      player.lossCarry -= used; remaining -= used;
+      if(player.lossCarry === 0) player.lossCarryExpiry = 0;
+    }
+    if(remaining > 0){
+      const nisaRoom = Math.max(0, NISA_LIFETIME_LIMIT - player.nisaUsed);
+      player.nisaUsed += Math.min(nisaRoom, remaining);
+    }
+  } else if(gain < 0){
+    player.lossCarry += (-gain);
+    player.lossCarryExpiry = LOSS_CARRY_EXPIRY_LAPS;
+  }
+}
+
+// 給与所得(年間累計への加算分)の限界税額を計算する(状態は変更しない)
+function calcSalaryIncome(player, amount){
+  const oldTotal = player.yearSalaryRaw, newTotal = oldTotal + amount;
+  const oldTi = taxableIncome(oldTotal, player.yearOnetimeBase, player);
+  const newTi = taxableIncome(newTotal, player.yearOnetimeBase, player);
+  const oldT = totalTaxFromTaxableIncome(oldTi), newT = totalTaxFromTaxableIncome(newTi);
+  const incomeTax = newT.incomeTax - oldT.incomeTax;
+  const residentTax = newT.residentTax - oldT.residentTax;
+  const reconstruction = newT.reconstruction - oldT.reconstruction;
+  const tax = incomeTax + residentTax + reconstruction;
+  return { newTotal, incomeTax, residentTax, reconstruction, tax, net: amount - tax };
+}
+
+const PENSION_FULL_YEARS = 40;           // 満額に必要な加入年数
+const PENSION_PROPORTIONAL_RATE = 0.0055; // 報酬比例部分の乗率(実際の5.481/1000を年換算した値)
+
+// 現役時代の実績から年金の年額を計算する(退職時に1回だけ呼ぶ)
+function computePensionAnnualAmount(player){
+  const years = player.careerYears || 0;
+  const avgAnnualSalary = years > 0 ? player.careerSalaryTotal / years : 0;
+  const basicProrated = PENSION_BASIC_FULL * Math.min(years, PENSION_FULL_YEARS) / PENSION_FULL_YEARS;
+  const proportional = avgAnnualSalary * PENSION_PROPORTIONAL_RATE * years;
+  return basicProrated + proportional;
+}
+
+// ---------- 状態 ----------
+const NEWS_POOL = [
+  { text: '景気拡大のニュースで市場全体が上昇ムード', bias: 0.08, stockId: null },
+  { text: '金利上昇観測で市場全体が軟調', bias: -0.08, stockId: null },
+  { text: '大型連休で消費が上向き、小売関連が堅調', bias: 0.06, stockId: null },
+  { text: '原材料価格の高騰観測で市場全体が警戒ムード', bias: -0.06, stockId: null },
+  { text: 'テック・ノヴァが新製品発表で期待感が高まる', bias: 0.15, stockId: 'nova' },
+  { text: 'テック・ノヴァでシステム障害が発生', bias: -0.15, stockId: 'nova' },
+  { text: 'みどり食品の看板商品がSNSでバズる', bias: 0.15, stockId: 'midori' },
+  { text: 'みどり食品が原材料価格高騰の影響を受ける', bias: -0.15, stockId: 'midori' },
+  { text: 'サンライズ物流が物流網の拡大を発表', bias: 0.15, stockId: 'sunrise' },
+  { text: 'サンライズ物流が燃料費高騰で収益懸念', bias: -0.15, stockId: 'sunrise' },
+  { text: 'はまなす銀行が好決算を発表', bias: 0.15, stockId: 'hamanasu' },
+  { text: 'はまなす銀行で不良債権の増加が懸念される', bias: -0.15, stockId: 'hamanasu' },
+  { text: '蒼空エネルギーが新たな発電施設の稼働を発表', bias: 0.15, stockId: 'aozora' },
+  { text: '蒼空エネルギーが燃料調達コストの上昇に直面', bias: -0.15, stockId: 'aozora' }
+];
+const NEWS_DURATION_LAPS = 3;
+const NEWS_CHANCE = 0.4;
+
+function initialMarket(){
+  return {
+    stocks: [
+      { id: 'nova',     name: 'テック・ノヴァ',   price: 3000, history: [[3000]], yieldRate: 0.02,  baseValue: 3000, volatility: 0.14 },
+      { id: 'midori',   name: 'みどり食品',       price: 3000, history: [[3000]], yieldRate: 0.03,  baseValue: 3000, volatility: 0.06 },
+      { id: 'sunrise',  name: 'サンライズ物流',   price: 3000, history: [[3000]], yieldRate: 0.025, baseValue: 3000, volatility: 0.09 },
+      { id: 'hamanasu', name: 'はまなす銀行',     price: 3000, history: [[3000]], yieldRate: 0.035, baseValue: 3000, volatility: 0.05 },
+      { id: 'aozora',   name: '蒼空エネルギー',   price: 3000, history: [[3000]], yieldRate: 0.02,  baseValue: 3000, volatility: 0.11 }
+    ],
+    activeNews: []
+  };
+}
+
+const SUBTICKS_PER_LAP = 3;   // 1周あたりの値動き回数
+const REVERSION_STRENGTH = 0.03; // 平均回帰の強さ(基準値との差を1回あたり何%縮めるか)
+
+// 1周ぶんの市場の動きを乱数で生成する(状態は変更しない)。生成結果はログに記録され、再計算時にそのまま再生される。
+function generateTick(){
+  const rec = { news: null, prices: {} };
+  if(Math.random() < NEWS_CHANCE){
+    const pick = NEWS_POOL[Math.floor(Math.random() * NEWS_POOL.length)];
+    rec.news = { text: pick.text, bias: pick.bias, stockId: pick.stockId };
+  }
+  const activeForSim = state.market.activeNews.concat(
+    rec.news ? [{ text: rec.news.text, bias: rec.news.bias, stockId: rec.news.stockId, turnsLeft: NEWS_DURATION_LAPS }] : []
+  );
+  state.market.stocks.forEach(s => {
+    let price = s.price;
+    const arr = [];
+    const subVolatility = s.volatility / SUBTICKS_PER_LAP;
+    for(let i = 0; i < SUBTICKS_PER_LAP; i++){
+      const baseChange = (Math.random()*2 - 1) * subVolatility;
+      const reversion = REVERSION_STRENGTH * (s.baseValue - price) / s.baseValue;
+      const newsBias = activeForSim
+        .filter(n => n.stockId === null || n.stockId === s.id)
+        .reduce((sum,n) => sum + n.bias, 0) / SUBTICKS_PER_LAP;
+      let newPrice = Math.round(price * (1 + baseChange + reversion + newsBias));
+      if(newPrice < 10) newPrice = 10;
+      price = newPrice;
+      arr.push(newPrice);
+    }
+    rec.prices[s.id] = arr;
+  });
+  return rec;
+}
+
+// 記録された市場の動きを状態に反映する
+function applyTick(rec){
+  if(rec.news){
+    state.market.activeNews.push({ text: rec.news.text, bias: rec.news.bias, stockId: rec.news.stockId, turnsLeft: NEWS_DURATION_LAPS });
+  }
+  state.market.stocks.forEach(s => {
+    const arr = rec.prices[s.id];
+    if(!arr || arr.length === 0) return;
+    s.price = arr[arr.length - 1];
+    s.history.push(arr.slice());
+    if(s.history.length > 30) s.history.shift();
+  });
+  state.market.activeNews.forEach(n => n.turnsLeft -= 1);
+  state.market.activeNews = state.market.activeNews.filter(n => n.turnsLeft > 0);
+}
+
+// rec省略時は新しく生成して反映する。使った記録を返す。
+function tickMarket(rec){
+  const used = rec || generateTick();
+  applyTick(used);
+  return used;
+}
+
+let state = { lap: 1, players: [], history: [], market: initialMarket(), currentPlayerIndex: 0, scale: DEFAULT_SCALE };
+
+function newPlayer(name, cash, id){
+  return {
+    id: id || (Date.now()+Math.random().toString(36).slice(2,7)),
+    name, cash: Number(cash)||0,
+    nisaUsed: 0, lossCarry: 0, lossCarryExpiry: 0,
+    yearSalaryRaw: 0, yearOnetimeBase: 0, yearLifeInsurancePremium: 0,
+    hasSpouse: false, numDependents: 0, isRetired: false,
+    holdings: {}, realEstate: [], treasures: [], loanBalance: 0,
+    careerSalaryTotal: 0, careerYears: 0, pensionAnnualAmount: 0,
+    netWorthHistory: [Number(cash)||0], finished: false, finalNetWorth: null
+  };
+}
+
+// 読み込んだ/取り込んだデータを現行の形式にそろえる
+function normalizeState(){
+  if(!Array.isArray(state.players)) state.players = [];
+  if(!Array.isArray(state.history)) state.history = [];
+  if(!(state.lap >= 1)) state.lap = 1;
+  if(!state.market) state.market = initialMarket();
+  if(!state.market.activeNews) state.market.activeNews = [];
+  const defaultYields = { nova: 0.02, midori: 0.03, sunrise: 0.025, hamanasu: 0.035, aozora: 0.02 };
+  state.market.stocks.forEach(s => { if(s.yieldRate === undefined) s.yieldRate = defaultYields[s.id] || 0.02; });
+  const defaultVolatility = { nova: 0.14, midori: 0.06, sunrise: 0.09, hamanasu: 0.05, aozora: 0.11 };
+  state.market.stocks.forEach(s => {
+    if(s.volatility === undefined) s.volatility = defaultVolatility[s.id] || 0.08;
+    if(s.baseValue === undefined) s.baseValue = s.price;
+  });
+  state.market.stocks.forEach(s => {
+    if(s.history.length > 0 && typeof s.history[0] === 'number'){
+      s.history = s.history.map(v => [v]);
+    }
+  });
+  initialMarket().stocks.forEach(defaultStock => {
+    if(!state.market.stocks.find(s => s.id === defaultStock.id)){
+      state.market.stocks.push(defaultStock);
+    }
+  });
+  state.players.forEach(p => {
+    if(!p.holdings) p.holdings = {};
+    if(!p.realEstate) p.realEstate = [];
+    if(!p.treasures) p.treasures = [];
+    if(p.loanBalance === undefined) p.loanBalance = 0;
+    if(p.careerSalaryTotal === undefined) p.careerSalaryTotal = 0;
+    if(p.careerYears === undefined) p.careerYears = 0;
+    if(p.pensionAnnualAmount === undefined) p.pensionAnnualAmount = 0;
+    if(p.yearLifeInsurancePremium === undefined) p.yearLifeInsurancePremium = 0;
+    if(!p.netWorthHistory) p.netWorthHistory = [p.cash];
+    if(p.finished === undefined) p.finished = false;
+    if(p.finalNetWorth === undefined) p.finalNetWorth = null;
+  });
+  if(state.currentPlayerIndex === undefined) state.currentPlayerIndex = 0;
+  if(!(state.scale > 0)) state.scale = DEFAULT_SCALE;
+  applyScale(state.scale);
+  // 操作ログ: ログがないデータは、この時点の状態を再計算の起点として記録を始める
+  if(!Array.isArray(state.eventLog) || !state.logBase){
+    const { eventLog, logBase, ...rest } = state;
+    state.eventLog = [];
+    state.logBase = JSON.parse(JSON.stringify(rest));
+  }
+}
+
+// ---------- 自動保存・復元 ----------
+// 保存先は2つ: ブラウザ自身の保存領域(localStorage)と、Claudeの画面内でだけ使えるストレージ(window.storage)。
+// どちらか使える方に保存し、読み込み時は保存日時が新しい方を採用する。
+const STORAGE_KEY = 'jinsei-zeimu-state';
+let loaded = false; // 読み込みが終わるまでは保存しない(保存済みのデータを空の状態で上書きしないため)
+
+function setSaveStatus(text){
+  const el = document.getElementById('save-status');
+  if(el) el.textContent = text;
+}
+function fmtDateTime(ms){
+  const d = new Date(ms), z = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${z(d.getMonth()+1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+
+async function loadState(){
+  const candidates = [];
+  try{ const v = localStorage.getItem(STORAGE_KEY); if(v) candidates.push(v); }catch(e){}
+  try{
+    if(window.storage){
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if(res && res.value) candidates.push(res.value);
+    }
+  }catch(e){}
+  let best = null, bestTime = -1;
+  for(const c of candidates){
+    try{
+      const st = JSON.parse(c);
+      if(st && Array.isArray(st.players)){
+        const t = Number(st.savedAt) || 0;
+        if(t > bestTime){ best = st; bestTime = t; }
+      }
+    }catch(e){}
+  }
+  const rawBest = best ? JSON.stringify(best) : null;
+  const fresh = state;
+  let restored = !!best;
+  try{
+    if(best){ state = best; }
+    delete state.savedAt;
+    normalizeState();
+    render();
+    syncEventPlayerToTurn();
+  }catch(e){
+    // 保存データが壊れていて起動できない場合は、新規状態で起動する(壊れたデータは別名で残す)
+    console.error('保存データを復元できませんでした', e);
+    try{ localStorage.setItem(STORAGE_KEY + '-broken', rawBest); }catch(e2){}
+    state = fresh;
+    normalizeState();
+    render();
+    syncEventPlayerToTurn();
+    restored = false;
+    best = null;
+  }
+  loaded = true;
+  const savedAt = best ? bestTime : 0;
+  setSaveStatus(rawBest && !restored
+    ? '保存データが壊れていたため、新規状態で起動しました（壊れたデータは別名で残してあります）'
+    : best
+    ? `前回のデータを復元しました（${savedAt ? fmtDateTime(savedAt) + ' 保存分' : '保存日時不明'}）`
+    : '保存データはありません（この画面の操作は自動で保存されます）');
+}
+
+async function saveState(){
+  if(!loaded) return;
+  const now = Date.now();
+  const payload = JSON.stringify(Object.assign({}, state, { savedAt: now }));
+  const where = [];
+  try{ localStorage.setItem(STORAGE_KEY, payload); where.push('ブラウザ'); }catch(e){}
+  try{ if(window.storage){ await window.storage.set(STORAGE_KEY, payload, false); where.push('Claude'); } }catch(e){}
+  setSaveStatus(where.length
+    ? `自動保存しました（${fmtDateTime(now)}・${where.join('と')}）`
+    : '自動保存できない環境です。リログすると消えるので、こまめに「書き出す」でバックアップしてください。');
+}
+// ---------- 元に戻す ----------
+let undoStack = [];
+const UNDO_STACK_LIMIT = 20;
+function snapshotForUndo(){
+  try{
+    undoStack.push(JSON.stringify(state));
+    if(undoStack.length > UNDO_STACK_LIMIT) undoStack.shift();
+  }catch(e){}
+  updateUndoButton();
+}
+function undoLast(){
+  if(undoStack.length === 0) return;
+  const snap = undoStack.pop();
+  state = JSON.parse(snap);
+  applyScale(state.scale);
+  render();
+  syncEventPlayerToTurn();
+  saveState();
+  updateUndoButton();
+}
+function updateUndoButton(){
+  const btn = document.getElementById('undo-btn');
+  if(btn) btn.disabled = undoStack.length === 0;
+}
+
+
+function fmt(n){ return Math.round(n).toLocaleString('ja-JP'); }
+
+// 現金+保有株式の評価額を合算した純資産
+function netWorth(player){
+  let value = player.cash;
+  Object.keys(player.holdings || {}).forEach(stockId => {
+    const h = player.holdings[stockId];
+    if(!h || h.qty <= 0) return;
+    const stock = state.market.stocks.find(s => s.id === stockId);
+    if(stock) value += stock.price * h.qty;
+  });
+  (player.realEstate || []).forEach(prop => { value += prop.cost; });
+  (player.treasures || []).forEach(t => { value += t.value; });
+  value -= (player.loanBalance || 0);
+  return value;
+}
+
+function categoryNote(cat){
+  const notes = {
+    salary: '現役中は給与所得控除、老後入り後は公的年金等控除を適用。さらに基礎控除・配偶者控除・扶養控除を差し引いた課税所得に対し、今年の累計所得に基づく限界税率で所得税・住民税10%・復興特別所得税2.1%を課税します。',
+    onetime: `(受取額−取得原価−${fmtNum(SPECIAL_DEDUCTION)})÷2 を課税対象額とし、給与所得と合算した年間累計（人的控除差引後）に基づく限界税率で課税します。お宝は専用の「お宝」欄に登録すると、ゴール時にまとめて売却・課税されます。`,
+    investor: `一律20%の分離課税。NISA生涯枠(${fmtNum(NISA_LIFETIME_LIMIT)})が残っていればその分は非課税です。貸したお金の利子を受け取る場合もこのカテゴリーで（利子所得も税率が同じため）。`,
+    nontax: '保険金・元本の払い戻しなど。課税処理は発生しません。',
+    gift: 'ご祝儀を受け取るプレイヤーを「対象プレイヤー」で選び、受取額の総額を入力します。ゴール前の他のプレイヤー全員で等分して支払います。受取は非課税、支払いは消費税・控除のない支出として記録されます。',
+    expense: '購入代金や保険料の支払い。通常は消費税10%が上乗せされます。自動車保険料・火災保険料などの非課税品目は消費税なし。生命保険料は消費税なしに加えて、支払額に応じた生命保険料控除が年間の課税所得から差し引かれます。'
+  };
+  return notes[cat] || '';
+}
+
+function updateFieldsForCategory(){
+  const cat = document.getElementById('ev-category').value;
+  document.getElementById('category-note').textContent = categoryNote(cat);
+  const costField = document.getElementById('field-cost');
+  const costInputGroup = document.getElementById('cost-input-group');
+  const taxExemptGroup = document.getElementById('tax-exempt-group');
+  const labelAmount = document.getElementById('label-amount');
+  const labelCost = document.getElementById('label-cost');
+  if(cat === 'onetime'){
+    costField.classList.remove('hidden-cell');
+    costInputGroup.style.display = 'block';
+    taxExemptGroup.style.display = 'none';
+    labelAmount.textContent = '受取額（賞金額など）';
+    labelCost.textContent = '取得原価（支払った額、なければ0）';
+  } else if(cat === 'expense'){
+    costField.classList.remove('hidden-cell');
+    costInputGroup.style.display = 'none';
+    taxExemptGroup.style.display = 'block';
+    labelAmount.textContent = '支出額（税抜・本体価格）';
+  } else if(cat === 'gift'){
+    costField.classList.add('hidden-cell');
+    costInputGroup.style.display = 'none';
+    taxExemptGroup.style.display = 'none';
+    labelAmount.textContent = '受取額（ご祝儀の総額）';
+  } else {
+    costField.classList.add('hidden-cell');
+    costInputGroup.style.display = 'none';
+    taxExemptGroup.style.display = 'none';
+    labelAmount.textContent = '受取額';
+  }
+  document.getElementById('calc-result').style.display = 'none';
+  document.getElementById('apply-btn').disabled = true;
+}
+
+function renderPlayerSelects(){
+  const evSel = document.getElementById('ev-player');
+  const current = evSel.value;
+  evSel.innerHTML = state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  if(current) evSel.value = current;
+}
+
+function renderPlayerCards(){
+  const wrap = document.getElementById('player-cards');
+  if(state.players.length === 0){ wrap.innerHTML = '<div class="empty">プレイヤーを登録してください</div>'; return; }
+  wrap.innerHTML = state.players.map(p => {
+    const nw = netWorth(p);
+    const nwHistory = p.netWorthHistory && p.netWorthHistory.length > 1 ? p.netWorthHistory.slice(-20) : [nw, nw];
+    const nwPrev = nwHistory.length > 1 ? nwHistory[nwHistory.length-2] : nw;
+    const nwPath = sparklinePath(nwHistory, 200, 32);
+    const nwColor = nw >= nwPrev ? '#5F8267' : '#B3382C';
+    return `
+    <div class="player-card">
+      <div class="player-card-top">
+        <span class="name">${p.name}${p.finished ? ' <span class=\"stamp\">ゴール</span>' : ''}</span>
+        <span style="display:flex; align-items:center; gap:8px;">
+          <span class="cash">¥${fmt(p.cash)}</span>
+          <button type="button" class="delete-player-btn" data-id="${p.id}" title="プレイヤーを削除">✕</button>
+        </span>
+      </div>
+      <div class="meta" style="margin-top:2px;">
+        <span>純資産（現金＋保有株評価額）: ¥${fmt(nw)}</span>
+      </div>
+      <svg class="stock-chart" viewBox="0 0 200 32" preserveAspectRatio="none" style="margin-top:4px;">
+        <path d="${nwPath}" fill="none" stroke="${nwColor}" stroke-width="2"/>
+      </svg>
+      <div class="meta">
+        <span>今年の給与収入累計: ${fmt(p.yearSalaryRaw)}</span>
+        <span>今年の一時所得課税対象累計: ${fmt(p.yearOnetimeBase)}</span>
+        <span>NISA使用: ${fmt(p.nisaUsed)}/${fmt(NISA_LIFETIME_LIMIT)}</span>
+        <span>繰越損失: ${fmt(p.lossCarry)}${p.lossCarry>0 ? ' (残り'+p.lossCarryExpiry+'周)' : ''}</span>
+        <span>就労年数: ${p.careerYears}年／生涯給与累計: ${fmt(p.careerSalaryTotal)}</span>
+        ${(p.loanBalance || 0) > 0 ? `<span>住宅ローン残高: ${fmt(p.loanBalance)}</span>` : ''}
+        ${(p.treasures || []).length > 0 ? `<span>保有お宝: ${p.treasures.length}点（価値計${fmt(p.treasures.reduce((sum, t) => sum + t.value, 0))}）</span>` : ''}
+        ${p.yearLifeInsurancePremium > 0 ? `<span>今年の生命保険料: ${fmt(p.yearLifeInsurancePremium)}（控除${fmt(lifeInsuranceDeduction(p.yearLifeInsurancePremium))}）</span>` : ''}
+        ${p.isRetired ? `<span>年金年額: ${fmt(p.pensionAnnualAmount)}</span>` : ''}
+      </div>
+      <div class="family-row" data-id="${p.id}">
+        <button type="button" class="family-btn spouse-toggle" data-id="${p.id}">配偶者: ${p.hasSpouse ? 'あり' : 'なし'}</button>
+        <span class="dependent-stepper">
+          扶養人数
+          <button type="button" class="family-btn dep-minus" data-id="${p.id}">－</button>
+          <b>${p.numDependents}</b>
+          <button type="button" class="family-btn dep-plus" data-id="${p.id}">＋</button>
+        </span>
+        <button type="button" class="family-btn retire-toggle" data-id="${p.id}">${p.isRetired ? '老後（年金控除）' : '現役（給与所得控除）'}</button>
+        <button type="button" class="family-btn goal-btn" data-id="${p.id}" ${p.finished ? 'disabled' : ''}>${p.finished ? 'ゴール済み' : 'ゴール（純資産を自動申告）'}</button>
+      </div>
+    </div>
+    `;
+  }).join('');
+  {
+    wrap.querySelectorAll('.spouse-toggle').forEach(btn => {
+      btn.onclick = () => {
+        snapshotForUndo();
+        doAction({ t: 'toggleSpouse', id: btn.dataset.id });
+        render(); saveState();
+      };
+    });
+    wrap.querySelectorAll('.dep-minus').forEach(btn => {
+      btn.onclick = () => {
+        snapshotForUndo();
+        doAction({ t: 'depDelta', id: btn.dataset.id, d: -1 });
+        render(); saveState();
+      };
+    });
+    wrap.querySelectorAll('.dep-plus').forEach(btn => {
+      btn.onclick = () => {
+        snapshotForUndo();
+        doAction({ t: 'depDelta', id: btn.dataset.id, d: 1 });
+        render(); saveState();
+      };
+    });
+    wrap.querySelectorAll('.retire-toggle').forEach(btn => {
+      btn.onclick = () => {
+        snapshotForUndo();
+        doAction({ t: 'toggleRetire', id: btn.dataset.id });
+        render(); saveState();
+      };
+    });
+    wrap.querySelectorAll('.goal-btn').forEach(btn => {
+      btn.onclick = () => {
+        const p = findPlayer(btn.dataset.id);
+        if(!p || p.finished) return;
+        const { treasure, g } = previewGoal(p);
+        const treasureText = treasure
+          ? `お宝${treasure.count}点を売却: 売却額¥${fmt(treasure.totalValue)}（購入額¥${fmt(treasure.totalCost)}、差益¥${fmt(treasure.gain)}、一時所得税¥${fmt(treasure.tax)}）\n`
+          : '';
+        if(!confirm(`${p.name}をゴールさせますか？\n${treasureText}純資産(自動計算・お宝売却後の現金＋保有株評価額など): ¥${fmt(g.nw)}\n基礎控除: ¥${fmt(g.deduction)}\n資産税額: ¥${fmt(g.tax)}\n税引後の最終純資産: ¥${fmt(g.net)}`)) return;
+        snapshotForUndo();
+        doAction({ t: 'goal', playerId: p.id });
+        render(); saveState();
+      };
+    });
+  }
+  wrap.querySelectorAll('.delete-player-btn').forEach(btn => {
+    btn.onclick = () => {
+      const p = findPlayer(btn.dataset.id);
+      if(!p) return;
+      if(!confirm(`${p.name} を削除しますか？（履歴は残りますが、所持金などの情報は失われます）`)) return;
+      snapshotForUndo();
+      doAction({ t: 'deletePlayer', id: p.id });
+      render();
+      syncEventPlayerToTurn();
+      saveState();
+    };
+  });
+}
+
+function renderHistory(){
+  const wrap = document.getElementById('history-list');
+  if(state.history.length === 0){ wrap.innerHTML = '<div class="empty">まだ記録がありません</div>'; return; }
+  wrap.innerHTML = state.history.slice().reverse().map(h => `
+    <div class="history-item">
+      <div>
+        <div class="h-label">${h.label}</div>
+        <div class="h-player">${h.playerName} ・ ${h.lap}周目</div>
+      </div>
+      <div class="h-amount ${h.net >= 0 ? 'plus':'minus'}">${h.net >= 0 ? '+':''}${fmt(h.net)}</div>
+    </div>
+  `).join('');
+}
+
+const CATEGORY_TAX_LABELS = {
+  salary: '給与所得税(所得税・住民税・復興税)',
+  onetime: '一時所得税',
+  investor: '投資家配当税',
+  stock: '株式譲渡税',
+  expense: '消費税',
+  goal: '資産課税(ゴール精算)',
+  realestate: '不動産譲渡税'
+};
+
+function renderResults(){
+  const wrap = document.getElementById('results-list');
+  if(state.players.length === 0){ wrap.innerHTML = '<div class="empty">プレイヤーがいません</div>'; return; }
+  const ranked = state.players.map(p => ({
+    player: p,
+    value: p.finished ? p.finalNetWorth : netWorth(p)
+  })).sort((a,b) => b.value - a.value);
+  const allFinished = state.players.every(p => p.finished);
+  wrap.innerHTML = (allFinished ? '<div class="category-note">全員ゴール済みです。以下が最終結果です。</div>' : '') +
+    '<div class="history">' +
+    ranked.map((r, i) => `
+      <div class="history-item">
+        <div>
+          <div class="h-label">${i+1}位　${r.player.name}${r.player.finished ? ' <span class="stamp">ゴール</span>' : ''}</div>
+          <div class="h-player">${r.player.finished ? '確定純資産' : '現在の純資産（プレイ中）'}</div>
+        </div>
+        <div class="h-amount plus">¥${fmt(r.value)}</div>
+      </div>
+    `).join('') +
+    '</div>';
+}
+
+function renderSummary(){
+  const wrap = document.getElementById('summary-list');
+  if(state.players.length === 0){ wrap.innerHTML = '<div class="empty">プレイヤーがいません</div>'; return; }
+  wrap.innerHTML = state.players.map(p => {
+    const entries = state.history.filter(h => h.playerName === p.name);
+    const byCat = {};
+    let totalTax = 0;
+    entries.forEach(h => {
+      const t = h.taxAmount || 0;
+      if(t > 0){ byCat[h.cat] = (byCat[h.cat]||0) + t; totalTax += t; }
+    });
+    const rows = Object.keys(byCat).map(c =>
+      `<div class="line"><span>${CATEGORY_TAX_LABELS[c] || c}</span><span>${fmt(byCat[c])}</span></div>`
+    ).join('');
+    return `
+      <div class="player-card">
+        <div class="player-card-top">
+          <span class="name">${p.name}</span>
+          <span class="cash">¥${fmt(p.cash)}</span>
+        </div>
+        <div class="calc-result" style="margin-top:8px;">
+          ${rows || '<div class="empty" style="padding:4px 0;">納税記録なし</div>'}
+          <div class="line total"><span>納税総額</span><span>${fmt(totalTax)}</span></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function sparklinePath(history, w, h){
+  const min = Math.min(...history), max = Math.max(...history);
+  const range = (max - min) || 1;
+  const step = w / Math.max(1, history.length - 1);
+  return history.map((v,i) => {
+    const x = i * step;
+    const y = h - ((v - min) / range) * h;
+    return `${i===0?'M':'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+}
+
+function flattenStockHistory(stock){
+  return stock.history.reduce((acc, group) => acc.concat(group), []);
+}
+
+function renderMarket(){
+  const wrap = document.getElementById('market-list');
+  wrap.innerHTML = state.market.stocks.map(s => {
+    const flat = flattenStockHistory(s);
+    const prev = flat.length > 1 ? flat[flat.length-2] : s.price;
+    const change = s.price - prev;
+    const pct = prev ? (change / prev * 100) : 0;
+    const cls = change > 0 ? 'up' : (change < 0 ? 'down' : '');
+    const path = sparklinePath(flat.slice(-60), 260, 40);
+    const lineColor = change >= 0 ? '#5F8267' : '#B3382C';
+    return `
+      <div class="stock-card">
+        <div class="stock-card-top">
+          <span class="stock-name">${s.name}</span>
+          <span class="stock-price">¥${fmt(s.price)}</span>
+        </div>
+        <div class="stock-change ${cls}">${change>=0?'+':''}${fmt(change)}（${pct>=0?'+':''}${pct.toFixed(1)}%）／ 配当利回り ${(s.yieldRate*100).toFixed(1)}%</div>
+        <svg class="stock-chart" viewBox="0 0 260 40" preserveAspectRatio="none">
+          <path d="${path}" fill="none" stroke="${lineColor}" stroke-width="2"/>
+        </svg>
+      </div>
+    `;
+  }).join('');
+
+  const stockSel = document.getElementById('market-stock');
+  const currentStock = stockSel.value;
+  stockSel.innerHTML = state.market.stocks.map(s => `<option value="${s.id}">${s.name}（¥${fmt(s.price)}）</option>`).join('');
+  if(currentStock) stockSel.value = currentStock;
+
+  const newsBox = document.getElementById('market-news');
+  if(state.market.activeNews.length === 0){
+    newsBox.innerHTML = '';
+  } else {
+    newsBox.innerHTML = state.market.activeNews.map(n => `
+      <div class="category-note" style="border-left-color:${n.bias>=0?'#5F8267':'#B3382C'};">
+        📰 ${n.text}
+      </div>
+    `).join('');
+  }
+
+  const playerSel = document.getElementById('market-player');
+  const currentPlayer = playerSel.value;
+  playerSel.innerHTML = state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  if(currentPlayer) playerSel.value = currentPlayer;
+
+  updateMarketPreview();
+}
+
+function updateMarketPreview(){
+  const preview = document.getElementById('market-preview');
+  const stock = state.market.stocks.find(s => s.id === document.getElementById('market-stock').value);
+  const shares = UNIT_SIZE;
+  const player = state.players.find(p => p.id === document.getElementById('market-player').value);
+  if(!stock){ preview.textContent = '銘柄を選んでください（常に1単元＝10株で取引）'; return; }
+  const cost = stock.price * shares;
+  const fee = Math.round(cost * TRADING_FEE_RATE);
+  const holding = player ? (player.holdings[stock.id] || {qty:0, avgCost:0}) : {qty:0, avgCost:0};
+  preview.textContent = `購入時: ¥${fmt(cost + fee)}（本体¥${fmt(cost)}＋手数料¥${fmt(fee)}）／ 売却時: 手数料¥${fmt(fee)}控除後で計算／ 保有中: ${holding.qty}株（平均取得単価¥${fmt(holding.avgCost)}）`;
+}
+
+function renderHoldings(){
+  const wrap = document.getElementById('holdings-list');
+  const rows = [];
+  state.players.forEach(p => {
+    Object.keys(p.holdings).forEach(stockId => {
+      const h = p.holdings[stockId];
+      if(h.qty <= 0) return;
+      const stock = state.market.stocks.find(s => s.id === stockId);
+      if(!stock) return;
+      const value = stock.price * h.qty;
+      const unrealized = value - h.avgCost * h.qty;
+      rows.push(`
+        <div class="holding-row">
+          <span>${p.name}／${stock.name}：${h.qty}株（原価¥${fmt(h.avgCost)}）</span>
+          <span class="${unrealized>=0?'plus':'minus'}">評価額¥${fmt(value)}（含み${unrealized>=0?'+':''}${fmt(unrealized)}）</span>
+        </div>
+      `);
+    });
+  });
+  wrap.innerHTML = rows.length ? `<div class="history">${rows.join('')}</div>` : '<div class="empty">保有株式はありません</div>';
+}
+
+function renderRealEstateList(){
+  const wrap = document.getElementById('realestate-list');
+  const rows = [];
+  state.players.forEach(p => {
+    (p.realEstate || []).forEach(prop => {
+      const heldLaps = state.lap - prop.purchaseLap;
+      const isLongTerm = heldLaps > REAL_ESTATE_LONG_TERM_LAPS;
+      rows.push(`
+        <div class="holding-row">
+          <span>${p.name}／${prop.name}${prop.isPrimaryResidence ? '（マイホーム）' : ''}（取得原価¥${fmt(prop.cost)}）</span>
+          <span>保有${heldLaps}周／${isLongTerm ? '長期' : '短期'}譲渡扱い</span>
+        </div>
+      `);
+    });
+  });
+  state.players.forEach(p => {
+    if((p.loanBalance || 0) > 0){
+      rows.push(`
+        <div class="holding-row">
+          <span>${p.name}／住宅ローン残高</span>
+          <span class="minus">-¥${fmt(p.loanBalance)}</span>
+        </div>
+      `);
+    }
+  });
+  wrap.innerHTML = rows.length ? `<div class="history">${rows.join('')}</div>` : '<div class="empty">保有中の不動産はありません</div>';
+
+  const playerSel = document.getElementById('re-player');
+  const currentPlayer = playerSel.value;
+  playerSel.innerHTML = state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  if(currentPlayer) playerSel.value = currentPlayer;
+
+  updateRealEstatePropertyOptions();
+  updateLoanPreview();
+}
+
+function updateRealEstatePropertyOptions(){
+  const propSel = document.getElementById('re-property');
+  const player = state.players.find(p => p.id === document.getElementById('re-player').value);
+  const currentProp = propSel.value;
+  const props = player ? (player.realEstate || []) : [];
+  propSel.innerHTML = props.map(prop => `<option value="${prop.id}">${prop.name}${prop.isPrimaryResidence ? '（マイホーム）' : ''}（原価¥${fmt(prop.cost)}）</option>`).join('');
+  if(currentProp) propSel.value = currentProp;
+  updateRealEstatePreview();
+}
+
+function updateRealEstatePreview(){
+  const preview = document.getElementById('re-preview');
+  const player = state.players.find(p => p.id === document.getElementById('re-player').value);
+  const prop = player ? (player.realEstate || []).find(p2 => p2.id === document.getElementById('re-property').value) : null;
+  const saleAmount = Number(document.getElementById('re-sale-amount').value) || 0;
+  if(!prop){ preview.textContent = '物件を選んでください'; return; }
+  const heldLaps = state.lap - prop.purchaseLap;
+  const isLongTerm = heldLaps > REAL_ESTATE_LONG_TERM_LAPS;
+  const rateText = isLongTerm ? '長期譲渡(20%)' : '短期譲渡(39%)';
+  const residenceText = prop.isPrimaryResidence ? `／マイホーム特別控除(最大¥${fmt(REAL_ESTATE_RESIDENCE_DEDUCTION)})対象` : '';
+  if(saleAmount <= 0){
+    preview.textContent = `取得原価¥${fmt(prop.cost)}／保有${heldLaps}周／${rateText}${residenceText}。売却額を入力してください`;
+    return;
+  }
+  const r = calcRealEstateSale(prop, saleAmount, state.lap);
+  const deductionText = r.deduction > 0 ? `／特別控除¥${fmt(r.deduction)}` : '';
+  preview.textContent = `保有${heldLaps}周／${rateText}／譲渡損益¥${fmt(r.gain)}${deductionText}／課税対象¥${fmt(r.taxableGain)}／税額¥${fmt(r.tax)}／税引後¥${fmt(r.net)}`;
+}
+
+// 現在のターンのプレイヤーを、イベント入力の対象プレイヤーに自動で反映する
+function syncEventPlayerToTurn(){
+  const turnPlayer = state.players[state.currentPlayerIndex];
+  if(!turnPlayer) return;
+  const sel = document.getElementById('ev-player');
+  if(sel) sel.value = turnPlayer.id;
+  const trSel = document.getElementById('tr-player');
+  if(trSel) trSel.value = turnPlayer.id;
+}
+
+function renderTreasureList(){
+  const wrap = document.getElementById('treasure-list');
+  const rows = [];
+  state.players.forEach(p => {
+    (p.treasures || []).forEach(t => {
+      const gain = t.value - t.cost;
+      rows.push(`
+        <div class="holding-row">
+          <span>${p.name}／${t.name}（購入額¥${fmt(t.cost)}／価値¥${fmt(t.value)}）</span>
+          <span class="${gain >= 0 ? 'plus' : 'minus'}">差額 ${gain >= 0 ? '+' : ''}${fmt(gain)}</span>
+        </div>
+      `);
+    });
+  });
+  wrap.innerHTML = rows.length ? `<div class="history">${rows.join('')}</div>` : '<div class="empty">保有中のお宝はありません（ゴール時にまとめて売却されます）</div>';
+  const sel = document.getElementById('tr-player');
+  const current = sel.value;
+  sel.innerHTML = state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  if(current) sel.value = current;
+}
+
+function render(){
+  document.getElementById('lap-count').textContent = state.lap;
+  if(state.currentPlayerIndex >= state.players.length) state.currentPlayerIndex = 0;
+  const turnPlayer = state.players[state.currentPlayerIndex];
+  document.getElementById('turn-player').textContent = turnPlayer ? turnPlayer.name : '-';
+  renderPlayerSelects();
+  renderPlayerCards();
+  renderResults();
+  renderSummary();
+  renderHistory();
+  renderMarket();
+  renderHoldings();
+  renderRealEstateList();
+  renderTreasureList();
+  renderScale();
+  updateFieldsForCategory();
+}
+
+document.getElementById('market-player').onchange = updateMarketPreview;
+document.getElementById('market-stock').onchange = updateMarketPreview;
+
+// ============================================================
+// 操作の実行と記録
+//   すべての状態変更は ACTIONS を通し、入力値つきで state.eventLog に記録する。
+//   スケール変更時は、記録の起点(state.logBase)から ACTIONS を再実行して台帳を作り直す。
+// ============================================================
+let replaying = false;
+function notify(msg){ if(!replaying) alert(msg); }
+function findPlayer(id){ return state.players.find(p => p.id === id); }
+function newId(){ return Date.now()+Math.random().toString(36).slice(2,7); }
+
+// イベント入力の計算(状態は変更しない)。表示用の明細(lines)も返す。
+function computeEvent(player, cat, amount, cost, expenseType){
+  const isComplex = true;
+  let lines = [], net = 0, label = '', taxAmount = 0;
+
+  if(cat === 'salary'){
+    label = '給与所得';
+    const r = calcSalaryIncome(player, amount);
+    net = r.net; taxAmount = r.tax;
+    lines.push(['受取額', amount, '']);
+    lines.push([(player.isRetired ? '年金控除' : '給与所得控除') + '後の年間所得', Math.max(0, r.newTotal - laborIncomeDeduction(r.newTotal, player)), '']);
+    lines.push(['所得税(限界分)', -r.incomeTax, 'tax']);
+    lines.push(['住民税10%(限界分)', -r.residentTax, 'tax']);
+    lines.push(['復興特別所得税2.1%(限界分)', -r.reconstruction, 'tax']);
+  } else if(cat === 'onetime'){
+    label = '一時所得';
+    const base = Math.max(0, amount - cost - SPECIAL_DEDUCTION) / 2;
+    const oldBase = player.yearOnetimeBase, newBase = oldBase + base;
+    const oldTi = taxableIncome(player.yearSalaryRaw, oldBase, player);
+    const newTi = taxableIncome(player.yearSalaryRaw, newBase, player);
+    const oldT = totalTaxFromTaxableIncome(oldTi), newT = totalTaxFromTaxableIncome(newTi);
+    const incomeTax = newT.incomeTax - oldT.incomeTax;
+    const residentTax = newT.residentTax - oldT.residentTax;
+    const reconstruction = newT.reconstruction - oldT.reconstruction;
+    const tax = incomeTax + residentTax + reconstruction;
+    net = amount - cost - tax; taxAmount = tax;
+    lines.push(['受取額', amount, '']);
+    if(cost > 0) lines.push(['取得原価', -cost, '']);
+    lines.push(['課税対象額 (差引後÷2)', base, '']);
+    lines.push(['所得税(限界分)', -incomeTax, 'tax']);
+    lines.push(['住民税10%(限界分)', -residentTax, 'tax']);
+    lines.push(['復興特別所得税2.1%(限界分)', -reconstruction, 'tax']);
+  } else if(cat === 'investor'){
+    label = '投資家配当';
+    const r = calcInvestorIncome(player, amount, isComplex);
+    net = r.net; taxAmount = r.tax;
+    lines.push(['受取額', amount, '']);
+    if(r.nisaApplied > 0) lines.push(['NISA枠適用（非課税）', r.nisaApplied, 'nisa']);
+    lines.push(['課税対象額', r.taxable, '']);
+    lines.push(['税額（20%）', -r.tax, 'tax']);
+  } else if(cat === 'nontax'){
+    label = '非課税収入'; net = amount;
+    lines.push(['受取額（非課税）', amount, '']);
+  } else if(cat === 'expense'){
+    label = '支出';
+    const isExempt = expenseType === 'exempt' || expenseType === 'life_insurance';
+    if(isExempt){
+      net = -amount;
+      lines.push(['支出額（消費税非課税）', -amount, '']);
+      if(expenseType === 'life_insurance'){
+        label = '支出（生命保険料）';
+        lines.push(['生命保険料控除の対象に加算', amount, 'nisa']);
+      }
+    } else {
+      const consumptionTax = amount * CONSUMPTION_TAX_RATE;
+      net = -(amount + consumptionTax); taxAmount = consumptionTax;
+      lines.push(['本体価格', -amount, '']);
+      lines.push(['消費税10%', -consumptionTax, 'tax']);
+    }
+  }
+  return { label, net, taxAmount, lines };
+}
+
+// ゴール時の資産課税の計算(状態は変更しない)
+function calcGoal(p){
+  const nw = netWorth(p);
+  const deduction = Math.min(nw, ASSET_BASIC_DEDUCTION);
+  const taxableBase = Math.max(0, nw - deduction);
+  const tax = progressiveTax(taxableBase, ASSET_BRACKETS);
+  return { nw, deduction, taxableBase, tax, net: nw - tax };
+}
+
+// ご祝儀: 受け取る人の額を、ゴール前の他のプレイヤーで等分して支払う(状態は変更しない)
+function computeGift(recipient, amount){
+  const payers = state.players.filter(p => p.id !== recipient.id && !p.finished);
+  const share = payers.length ? amount / payers.length : 0;
+  const lines = [['受取額（ご祝儀の総額）', amount, ''], ['支払うプレイヤー数', payers.length, ''], ['1人あたりの支払い', -share, '']];
+  payers.forEach(p => lines.push([`${p.name}の支払い`, -share, '']));
+  return { payers, share, net: amount, lines };
+}
+
+// ゴール時にお宝をすべて売却する。購入額は入手時に支払い済みなので、ここでは売却額を受け取り、
+// 売却額の合計−購入額の合計(差益)を一時所得として課税する(特別控除は1回、損益は通算)。
+// histを渡すと履歴に記録する。売却したお宝がなければ何もしない。
+function settleTreasures(p, hist){
+  const items = p.treasures || [];
+  if(items.length === 0) return null;
+  const totalValue = items.reduce((sum, t) => sum + t.value, 0);
+  const totalCost = items.reduce((sum, t) => sum + t.cost, 0);
+  const res = computeEvent(p, 'onetime', totalValue, totalCost, null);
+  p.yearOnetimeBase += Math.max(0, totalValue - totalCost - SPECIAL_DEDUCTION) / 2;
+  p.cash += totalValue - res.taxAmount;
+  if(hist){
+    items.forEach(t => hist.push({ label: `お宝売却（${t.name}）`, playerName: p.name, net: t.value, lap: state.lap, cat: 'treasure_sale', taxAmount: 0 }));
+    if(res.taxAmount > 0) hist.push({ label: 'お宝の売却益にかかる一時所得税', playerName: p.name, net: -res.taxAmount, lap: state.lap, cat: 'onetime', taxAmount: res.taxAmount });
+  }
+  p.treasures = [];
+  return { count: items.length, totalValue, totalCost, gain: totalValue - totalCost, tax: res.taxAmount };
+}
+
+// ゴールした場合の見込み(お宝の売却→資産課税)。状態は変更しない。
+function previewGoal(p){
+  const sim = JSON.parse(JSON.stringify(p));
+  const treasure = settleTreasures(sim, null);
+  return { treasure, g: calcGoal(sim) };
+}
+
+// 1周ぶんの自動処理。使った市場の記録(tick)を返す。
+function advanceLap(tick){
+  state.lap += 1;
+  const isComplex = true; // リアルモード運用に一本化
+  const pensionNotes = [];
+  const dividendNotes = [];
+  const debtNotes = [];
+  state.players.forEach(p => {
+    if(p.lossCarry > 0){
+      p.lossCarryExpiry -= 1;
+      if(p.lossCarryExpiry <= 0){ p.lossCarry = 0; p.lossCarryExpiry = 0; }
+    }
+    if(!p.isRetired){
+      p.careerYears = (p.careerYears || 0) + 1;
+    }
+    // 年が変わるので年間累計をリセット
+    p.yearSalaryRaw = 0;
+    p.yearOnetimeBase = 0;
+    p.yearLifeInsurancePremium = 0;
+    // 老後入り済みなら、年金を自動支給
+    if(isComplex && p.isRetired && p.pensionAnnualAmount > 0){
+      const r = calcSalaryIncome(p, p.pensionAnnualAmount);
+      p.cash += r.net;
+      p.yearSalaryRaw = r.newTotal;
+      state.history.push({ label: '年金の自動支給', playerName: p.name, net: r.net, lap: state.lap, cat: 'salary', taxAmount: r.tax });
+      pensionNotes.push(`${p.name}：年金¥${fmt(p.pensionAnnualAmount)}（税引後¥${fmt(r.net)}）`);
+    }
+    // 保有株式があれば配当を自動支給
+    Object.keys(p.holdings || {}).forEach(stockId => {
+      const holding = p.holdings[stockId];
+      if(!holding || holding.qty <= 0) return;
+      const stock = state.market.stocks.find(s => s.id === stockId);
+      if(!stock) return;
+      const dividendAmount = Math.round(stock.price * holding.qty * stock.yieldRate);
+      if(dividendAmount <= 0) return;
+      const r = calcInvestorIncome(p, dividendAmount, isComplex);
+      applyInvestorIncomeEffects(p, r.nisaApplied, isComplex);
+      p.cash += r.net;
+      state.history.push({ label: `配当（${stock.name} ${holding.qty}株）`, playerName: p.name, net: r.net, lap: state.lap, cat: 'investor', taxAmount: r.tax });
+      dividendNotes.push(`${p.name}：${stock.name}配当¥${fmt(dividendAmount)}（税引後¥${fmt(r.net)}）`);
+    });
+    // 住宅ローンの利息を所持金から支払う
+    if((p.loanBalance || 0) > 0){
+      const mortgageInterest = Math.round(p.loanBalance * MORTGAGE_INTEREST_RATE);
+      if(mortgageInterest > 0){
+        p.cash -= mortgageInterest;
+        state.history.push({ label: '住宅ローンの利息', playerName: p.name, net: -mortgageInterest, lap: state.lap, cat: 'loan_interest', taxAmount: 0 });
+        debtNotes.push(`${p.name}：住宅ローンの利息¥${fmt(mortgageInterest)}（ローン残高¥${fmt(p.loanBalance)}）`);
+      }
+    }
+    // 所持金がマイナスなら借金とみなし利息を徴収
+    if(p.cash < 0){
+      const interest = Math.round(-p.cash * DEBT_INTEREST_RATE);
+      if(interest > 0){
+        p.cash -= interest;
+        state.history.push({ label: '借金の利息', playerName: p.name, net: -interest, lap: state.lap, cat: 'debt_interest', taxAmount: 0 });
+        debtNotes.push(`${p.name}：借金の利息¥${fmt(interest)}（残高¥${fmt(p.cash)}）`);
+      }
+    }
+    // この時点の純資産を履歴に記録
+    p.netWorthHistory.push(netWorth(p));
+    if(p.netWorthHistory.length > 30) p.netWorthHistory.shift();
+  });
+  const usedTick = tickMarket(tick);
+  const notes = [...pensionNotes, ...dividendNotes, ...debtNotes];
+  if(notes.length > 0){
+    notify('周が変わり、年金・配当・借金利息を自動処理しました\n' + notes.join('\n'));
+  }
+  return usedTick;
+}
+
+const ACTIONS = {
+  addPlayer(ev){ state.players.push(newPlayer(ev.name, ev.cash, ev.id)); },
+  deletePlayer(ev){
+    state.players = state.players.filter(p => p.id !== ev.id);
+    if(state.currentPlayerIndex >= state.players.length) state.currentPlayerIndex = 0;
+  },
+  toggleSpouse(ev){ const p = findPlayer(ev.id); if(!p) return false; p.hasSpouse = !p.hasSpouse; },
+  depDelta(ev){ const p = findPlayer(ev.id); if(!p) return false; p.numDependents = Math.max(0, (p.numDependents||0) + ev.d); },
+  toggleRetire(ev){
+    const p = findPlayer(ev.id); if(!p) return false;
+    p.isRetired = !p.isRetired;
+    p.pensionAnnualAmount = p.isRetired ? computePensionAnnualAmount(p) : 0;
+  },
+  event(ev){
+    const player = findPlayer(ev.playerId); if(!player) return false;
+    const { cat, amount, cost, expenseType } = ev;
+    const res = computeEvent(player, cat, amount, cost, expenseType);
+    player.cash += res.net;
+    if(cat === 'salary'){
+      player.yearSalaryRaw += amount;
+      if(!player.isRetired) player.careerSalaryTotal += amount;
+    }
+    if(cat === 'onetime'){
+      player.yearOnetimeBase += Math.max(0, amount - cost - SPECIAL_DEDUCTION) / 2;
+    }
+    if(cat === 'investor'){
+      const nisaRoom = Math.max(0, NISA_LIFETIME_LIMIT - player.nisaUsed);
+      player.nisaUsed += Math.min(nisaRoom, amount);
+    }
+    if(cat === 'expense' && expenseType === 'life_insurance'){
+      player.yearLifeInsurancePremium = (player.yearLifeInsurancePremium || 0) + amount;
+    }
+    state.history.push({ label: res.label, playerName: player.name, net: res.net, lap: state.lap, cat, taxAmount: res.taxAmount });
+  },
+  marketBuy(ev){
+    const player = findPlayer(ev.playerId);
+    const stock = state.market.stocks.find(s => s.id === ev.stockId);
+    if(!player || !stock) return false;
+    const qty = UNIT_SIZE;
+    const cost = stock.price * qty;
+    const fee = Math.round(cost * TRADING_FEE_RATE);
+    const totalCost = cost + fee;
+    const holding = player.holdings[stock.id] || { qty: 0, avgCost: 0 };
+    const newQty = holding.qty + qty;
+    const newAvgCost = ((holding.avgCost * holding.qty) + totalCost) / newQty;
+    player.holdings[stock.id] = { qty: newQty, avgCost: newAvgCost };
+    player.cash -= totalCost;
+    state.history.push({ label: `株式購入（${stock.name} ${qty}株、手数料¥${fmt(fee)}込み）`, playerName: player.name, net: -totalCost, lap: state.lap, cat: 'market_buy', taxAmount: 0 });
+  },
+  marketSell(ev){
+    const player = findPlayer(ev.playerId);
+    const stock = state.market.stocks.find(s => s.id === ev.stockId);
+    if(!player || !stock) return false;
+    const qty = UNIT_SIZE;
+    const holding = player.holdings[stock.id] || { qty: 0, avgCost: 0 };
+    if(holding.qty < qty) return false;
+    const isComplex = true;
+    const grossSaleAmount = stock.price * qty;
+    const fee = Math.round(grossSaleAmount * TRADING_FEE_RATE);
+    const saleAmount = grossSaleAmount - fee;
+    const costAmount = holding.avgCost * qty;
+    const r = calcStockSale(player, saleAmount, costAmount, isComplex);
+    applyStockSaleEffects(player, saleAmount, costAmount, isComplex);
+    player.cash += r.net;
+    holding.qty -= qty;
+    if(holding.qty === 0) holding.avgCost = 0;
+    player.holdings[stock.id] = holding;
+    state.history.push({ label: `株式売却（${stock.name} ${qty}株、手数料¥${fmt(fee)}控除後）`, playerName: player.name, net: r.net, lap: state.lap, cat: 'stock', taxAmount: r.tax });
+  },
+  reBuy(ev){
+    const player = findPlayer(ev.playerId); if(!player) return false;
+    const price = ev.price;
+    const usedCash = Math.max(0, Math.min(player.cash, price));
+    const shortfall = price - usedCash;
+    player.realEstate.push({ id: ev.id, name: ev.name, cost: price, purchaseLap: state.lap, isPrimaryResidence: !!ev.isPrimaryResidence });
+    player.cash -= usedCash;
+    player.loanBalance = (player.loanBalance || 0) + shortfall;
+    state.history.push({ label: `不動産購入（${ev.name}${ev.isPrimaryResidence ? '・マイホーム' : ''}${shortfall > 0 ? '、住宅ローン¥' + fmt(shortfall) + '含む' : ''}）`, playerName: player.name, net: -usedCash, lap: state.lap, cat: 'realestate_buy', taxAmount: 0 });
+  },
+  reSell(ev){
+    const player = findPlayer(ev.playerId); if(!player) return false;
+    const prop = (player.realEstate || []).find(p2 => p2.id === ev.propId);
+    if(!prop) return false;
+    const r = calcRealEstateSale(prop, ev.saleAmount, state.lap);
+    player.cash += r.net;
+    player.realEstate = player.realEstate.filter(p2 => p2.id !== ev.propId);
+    state.history.push({ label: `不動産売却（${prop.name}、${r.isLongTerm?'長期':'短期'}譲渡）`, playerName: player.name, net: r.net, lap: state.lap, cat: 'realestate', taxAmount: r.tax });
+  },
+  loanRepay(ev){
+    const player = findPlayer(ev.playerId); if(!player) return false;
+    const balance = player.loanBalance || 0;
+    if(balance <= 0) return false;
+    const repay = Math.min(ev.amount, balance);
+    player.cash -= repay;
+    player.loanBalance = balance - repay;
+    state.history.push({ label: '住宅ローン返済', playerName: player.name, net: -repay, lap: state.lap, cat: 'loan_repay', taxAmount: 0 });
+  },
+  gift(ev){
+    const r = findPlayer(ev.recipientId); if(!r || r.finished || !(ev.amount > 0)) return false;
+    const { payers, share } = computeGift(r, ev.amount);
+    if(payers.length === 0) return false;
+    r.cash += ev.amount;
+    state.history.push({ label: `ご祝儀を受け取り（${payers.length}人から）`, playerName: r.name, net: ev.amount, lap: state.lap, cat: 'nontax', taxAmount: 0 });
+    payers.forEach(p => {
+      p.cash -= share;
+      state.history.push({ label: `ご祝儀を支払い（${r.name}へ）`, playerName: p.name, net: -share, lap: state.lap, cat: 'expense', taxAmount: 0 });
+    });
+  },
+  treasureAdd(ev){
+    const p = findPlayer(ev.playerId); if(!p || p.finished) return false;
+    p.treasures.push({ id: ev.id, name: ev.name, cost: ev.cost, value: ev.value, acquiredLap: state.lap });
+    p.cash -= ev.cost;
+    state.history.push({ label: `お宝入手（${ev.name}、価値¥${fmt(ev.value)}）`, playerName: p.name, net: -ev.cost, lap: state.lap, cat: 'treasure_buy', taxAmount: 0 });
+  },
+  goal(ev){
+    const p = findPlayer(ev.playerId);
+    if(!p || p.finished) return false;
+    settleTreasures(p, state.history);
+    const g = calcGoal(p);
+    state.history.push({ label: 'ゴール精算（資産課税・自動）', playerName: p.name, net: -g.tax, lap: state.lap, cat: 'goal', taxAmount: g.tax });
+    p.cash -= g.tax;
+    p.finished = true;
+    p.finalNetWorth = g.net;
+  },
+  endTurn(ev){
+    if(state.players.length === 0) return false;
+    state.currentPlayerIndex += 1;
+    if(state.currentPlayerIndex >= state.players.length){
+      state.currentPlayerIndex = 0;
+      ev.tick = advanceLap(ev.tick);
+    }
+  }
+};
+
+// 操作を実行し、成功したらログに記録する
+function doAction(ev){
+  const ok = ACTIONS[ev.t](ev);
+  if(ok === false) return false;
+  if(!replaying) state.eventLog.push(ev);
+  return true;
+}
+
+// ---------- 株式市場 ----------
+document.getElementById('market-buy-btn').onclick = () => {
+  const player = findPlayer(document.getElementById('market-player').value);
+  const stock = state.market.stocks.find(s => s.id === document.getElementById('market-stock').value);
+  if(!player || !stock){ alert('プレイヤー・銘柄を確認してください'); return; }
+  const cost = stock.price * UNIT_SIZE;
+  const totalCost = cost + Math.round(cost * TRADING_FEE_RATE);
+  if(player.cash < totalCost){ alert('所持金が足りません（手数料込み）'); return; }
+  snapshotForUndo();
+  doAction({ t: 'marketBuy', playerId: player.id, stockId: stock.id });
+  render(); saveState();
+};
+
+document.getElementById('market-sell-btn').onclick = () => {
+  const player = findPlayer(document.getElementById('market-player').value);
+  const stock = state.market.stocks.find(s => s.id === document.getElementById('market-stock').value);
+  if(!player || !stock){ alert('プレイヤー・銘柄を確認してください'); return; }
+  const holding = player.holdings[stock.id] || { qty: 0, avgCost: 0 };
+  if(holding.qty < UNIT_SIZE){ alert('保有株数が足りません'); return; }
+  snapshotForUndo();
+  doAction({ t: 'marketSell', playerId: player.id, stockId: stock.id });
+  render(); saveState();
+};
+
+// ---------- 不動産・住宅ローン ----------
+document.getElementById('re-player').onchange = () => { updateRealEstatePropertyOptions(); updateLoanPreview(); };
+document.getElementById('re-property').onchange = updateRealEstatePreview;
+document.getElementById('re-sale-amount').oninput = updateRealEstatePreview;
+
+function updateLoanPreview(){
+  const preview = document.getElementById('loan-preview');
+  const player = findPlayer(document.getElementById('re-player').value);
+  const balance = player ? (player.loanBalance || 0) : 0;
+  preview.textContent = balance > 0
+    ? `${player.name}のローン残高¥${fmt(balance)}／毎周の利息¥${fmt(Math.round(balance * MORTGAGE_INTEREST_RATE))}（金利${(MORTGAGE_INTEREST_RATE*100).toFixed(1)}%）`
+    : 'ローン残高なし';
+}
+
+document.getElementById('loan-repay-btn').onclick = () => {
+  const player = findPlayer(document.getElementById('re-player').value);
+  const amount = Number(document.getElementById('loan-repay-amount').value) || 0;
+  if(!player || amount <= 0){ alert('プレイヤー・返済額を確認してください'); return; }
+  const balance = player.loanBalance || 0;
+  if(balance <= 0){ alert('ローン残高がありません'); return; }
+  const repay = Math.min(amount, balance);
+  if(player.cash < repay){ alert('所持金が足りません'); return; }
+  snapshotForUndo();
+  doAction({ t: 'loanRepay', playerId: player.id, amount });
+  document.getElementById('loan-repay-amount').value = '';
+  render(); saveState();
+};
+
+document.getElementById('re-buy-btn').onclick = () => {
+  const player = findPlayer(document.getElementById('re-player').value);
+  const name = document.getElementById('re-name').value.trim();
+  const price = Number(document.getElementById('re-price').value) || 0;
+  const isPrimaryResidence = document.getElementById('re-is-residence').checked;
+  if(!player || !name || price <= 0){ alert('プレイヤー・物件名・購入額を確認してください'); return; }
+  const usedCash = Math.max(0, Math.min(player.cash, price));
+  const shortfall = price - usedCash;
+  if(shortfall > 0){
+    const annualInterest = Math.round(shortfall * MORTGAGE_INTEREST_RATE);
+    if(!confirm(`所持金が足りません。不足分¥${fmt(shortfall)}を住宅ローンで借りますか？\n（金利${(MORTGAGE_INTEREST_RATE*100).toFixed(1)}%、毎周の利息は約¥${fmt(annualInterest)}）`)) return;
+  }
+  snapshotForUndo();
+  doAction({ t: 'reBuy', playerId: player.id, id: newId(), name, price, isPrimaryResidence });
+  document.getElementById('re-name').value = '';
+  document.getElementById('re-price').value = '';
+  document.getElementById('re-is-residence').checked = false;
+  render(); saveState();
+};
+
+document.getElementById('re-sell-btn').onclick = () => {
+  const player = findPlayer(document.getElementById('re-player').value);
+  if(!player){ alert('プレイヤーを確認してください'); return; }
+  const propId = document.getElementById('re-property').value;
+  const prop = (player.realEstate || []).find(p2 => p2.id === propId);
+  const saleAmount = Number(document.getElementById('re-sale-amount').value) || 0;
+  if(!prop){ alert('売却する物件を選んでください'); return; }
+  if(saleAmount <= 0){ alert('売却額を入力してください'); return; }
+  snapshotForUndo();
+  doAction({ t: 'reSell', playerId: player.id, propId, saleAmount });
+  document.getElementById('re-sale-amount').value = '';
+  render(); saveState();
+};
+
+// ---------- お宝 ----------
+document.getElementById('tr-add-btn').onclick = () => {
+  const player = findPlayer(document.getElementById('tr-player').value);
+  const name = document.getElementById('tr-name').value.trim() || 'お宝';
+  const cost = Number(document.getElementById('tr-cost').value) || 0;
+  const value = Number(document.getElementById('tr-value').value) || 0;
+  if(!player){ alert('プレイヤーを確認してください'); return; }
+  if(player.finished){ alert('ゴール済みのプレイヤーはお宝を入手できません'); return; }
+  if(cost < 0 || value <= 0){ alert('購入額は0以上、価値は0より大きい数を入力してください'); return; }
+  if(player.cash < cost){ alert('所持金が足りません'); return; }
+  snapshotForUndo();
+  doAction({ t: 'treasureAdd', playerId: player.id, id: newId(), name, cost, value });
+  document.getElementById('tr-name').value = '';
+  document.getElementById('tr-cost').value = '';
+  document.getElementById('tr-value').value = '';
+  render(); saveState();
+};
+
+// ---------- バックアップ ----------
+document.getElementById('export-btn').onclick = () => {
+  const area = document.getElementById('export-area');
+  area.value = JSON.stringify(state);
+  area.style.display = 'block';
+  area.select();
+  try{ document.execCommand('copy'); }catch(e){}
+};
+
+document.getElementById('import-btn').onclick = () => {
+  const area = document.getElementById('export-area');
+  if(area.style.display === 'none'){ area.style.display = 'block'; area.value=''; area.focus(); return; }
+  const text = area.value.trim();
+  if(!text) return;
+  try{
+    const parsed = JSON.parse(text);
+    if(!parsed.players){ throw new Error('形式が不正です'); }
+    state = parsed;
+    normalizeState();
+    render();
+    syncEventPlayerToTurn();
+    saveState();
+    area.style.display = 'none';
+  }catch(e){
+    alert('読み込みに失敗しました。貼り付けた内容を確認してください。');
+  }
+};
+
+document.getElementById('undo-btn').onclick = () => { undoLast(); };
+
+document.getElementById('new-game-btn').onclick = () => {
+  if(!confirm('新しいゲームを始めます。プレイヤー・履歴・株価など、現在のデータがすべて消えます（スケール設定は引き継ぎます）。\n先に「書き出す」でバックアップすることをおすすめします。続けますか？\n（直後なら「元に戻す」で戻せます）')) return;
+  snapshotForUndo();
+  const keepScale = state.scale;
+  state = { lap: 1, players: [], history: [], market: initialMarket(), currentPlayerIndex: 0, scale: keepScale };
+  normalizeState();
+  render();
+  syncEventPlayerToTurn();
+  saveState();
+};
+
+// ---------- ターン・プレイヤー ----------
+document.getElementById('end-turn-btn').onclick = () => {
+  if(state.players.length === 0){ alert('プレイヤーを登録してください'); return; }
+  snapshotForUndo();
+  doAction({ t: 'endTurn' });
+  render();
+  syncEventPlayerToTurn();
+  saveState();
+};
+
+document.getElementById('add-player').onclick = () => {
+  const nameInput = document.getElementById('new-player-name');
+  const cashInput = document.getElementById('new-player-cash');
+  const name = nameInput.value.trim();
+  if(!name) return;
+  snapshotForUndo();
+  doAction({ t: 'addPlayer', id: newId(), name, cash: Number(cashInput.value) || 0 });
+  nameInput.value = ''; cashInput.value = '';
+  render();
+  syncEventPlayerToTurn();
+  saveState();
+};
+
+// ---------- イベント入力 ----------
+document.getElementById('ev-category').onchange = updateFieldsForCategory;
+
+let pendingResult = null;
+
+document.getElementById('calc-btn').onclick = () => {
+  const cat = document.getElementById('ev-category').value;
+  const player = findPlayer(document.getElementById('ev-player').value);
+  const amount = Number(document.getElementById('ev-amount').value) || 0;
+  const cost = Number(document.getElementById('ev-cost').value) || 0;
+  if(!player){ alert('プレイヤーを選択・登録してください'); return; }
+  let net, lines;
+  if(cat === 'gift'){
+    if(amount <= 0){ alert('ご祝儀の額を入力してください'); return; }
+    if(player.finished){ alert('ゴール済みのプレイヤーはご祝儀を受け取れません'); return; }
+    const g = computeGift(player, amount);
+    if(g.payers.length === 0){ alert('支払う他のプレイヤー（ゴール前）がいません'); return; }
+    net = g.net; lines = g.lines;
+    pendingResult = { t: 'gift', recipientId: player.id, amount };
+  } else {
+    const expenseType = cat === 'expense' ? document.getElementById('ev-expense-type').value : null;
+    ({ net, lines } = computeEvent(player, cat, amount, cost, expenseType));
+    pendingResult = { t: 'event', playerId: player.id, cat, amount, cost, expenseType };
+  }
+  const resultBox = document.getElementById('calc-result');
+  resultBox.style.display = 'block';
+  resultBox.innerHTML = lines.map(([l,v,cls]) =>
+    `<div class="line ${cls}"><span>${l}</span><span>${fmt(v)}</span></div>`
+  ).join('') + `<div class="line total"><span>差引後の増減</span><span>${net>=0?'+':''}${fmt(net)}</span></div>`;
+
+  document.getElementById('apply-btn').disabled = false;
+};
+
+document.getElementById('apply-btn').onclick = () => {
+  if(!pendingResult) return;
+  snapshotForUndo();
+  doAction(Object.assign({}, pendingResult));
+
+  document.getElementById('ev-amount').value = '';
+  document.getElementById('ev-cost').value = '';
+  document.getElementById('ev-expense-type').value = 'normal';
+  document.getElementById('calc-result').style.display = 'none';
+  document.getElementById('apply-btn').disabled = true;
+  pendingResult = null;
+
+  render(); saveState();
+};
+
+// ---------- スケール設定 ----------
+function fmtNum(n){ return Math.abs(n) >= 100 ? fmt(n) : (Math.round(n * 10) / 10).toLocaleString('ja-JP'); }
+
+// 指定スケールでの主な基準額と、サンプル給与の税額の目安
+function describeScale(d){
+  const prev = SCALE;
+  let sample = '';
+  try{
+    applyScale(d);
+    const dummy = { yearSalaryRaw: 0, yearOnetimeBase: 0, yearLifeInsurancePremium: 0, hasSpouse: false, numDependents: 0, isRetired: false };
+    const salary = 12000;
+    const r = calcSalaryIncome(dummy, salary);
+    sample = `給与${fmt(salary)}を受け取った場合（独身・扶養なし）の税額の目安: ¥${fmt(r.tax)}（手取り¥${fmt(r.net)}）`;
+  } finally { applyScale(prev); }
+  return `基礎控除 ${fmtNum(REAL.basicDeduction / d)}／NISA生涯枠 ${fmtNum(REAL.nisaLimit / d)}／相続税の基礎控除 ${fmtNum(REAL.assetBasicDeduction / d)}／所得税の最高税率(45%)の境目 ${fmtNum(40000000 / d)}超\n${sample}`;
+}
+
+function updateScalePreview(){
+  const d = Number(document.getElementById('scale-input').value);
+  document.getElementById('scale-preview').textContent = d > 0 ? describeScale(d) : 'スケールは0より大きい数を入力してください';
+}
+
+function renderScale(){
+  document.getElementById('scale-sub').textContent = `1/${fmtNum(state.scale)}換算 課税ルール`;
+  const input = document.getElementById('scale-input');
+  if(input.dataset.scale !== String(state.scale)){
+    input.value = state.scale;
+    input.dataset.scale = String(state.scale);
+  }
+  const base = state.logBase || {};
+  const baseHistory = (base.history || []).length;
+  const note = baseHistory > 0
+    ? `\n※記録の起点より前の履歴${baseHistory}件は、入力値が残っていないため再計算されません（起点の状態から計算が始まります）。`
+    : '';
+  document.getElementById('scale-status').textContent =
+    `現在のスケール: 1/${fmtNum(state.scale)}（現実の金額÷${fmtNum(state.scale)}＝ゲーム内の基準額）／再計算に使える操作の記録: ${state.eventLog.length}件${note}`;
+  updateScalePreview();
+}
+
+document.getElementById('scale-input').oninput = updateScalePreview;
+
+// スケールを変更し、記録した操作を起点から再実行して台帳を作り直す
+function recomputeWithScale(newScale){
+  snapshotForUndo();
+  const log = state.eventLog;
+  const baseJson = JSON.stringify(state.logBase);
+  replaying = true;
+  try{
+    const base = JSON.parse(baseJson);
+    base.eventLog = log;
+    base.logBase = JSON.parse(baseJson);
+    base.scale = newScale;
+    state = base;
+    applyScale(newScale);
+    for(const ev of log){ ACTIONS[ev.t](ev); }
+  } finally {
+    replaying = false;
+  }
+}
+
+document.getElementById('scale-apply-btn').onclick = () => {
+  const d = Number(document.getElementById('scale-input').value);
+  if(!(d > 0)){ alert('スケールは0より大きい数を入力してください'); return; }
+  if(!confirm(`スケールを 1/${fmtNum(d)} に変更し、記録された${state.eventLog.length}件の操作を最初から計算し直します。\n全プレイヤーの所持金・税額・履歴が置き換わります（「元に戻す」で戻せます）。`)) return;
+  try{
+    recomputeWithScale(d);
+  }catch(e){
+    console.error(e);
+    undoLast();
+    alert('再計算に失敗したため、元の状態に戻しました。');
+    return;
+  }
+  render();
+  syncEventPlayerToTurn();
+  saveState();
+};
+
+document.querySelectorAll('section').forEach(sec => {
+  const label = sec.querySelector('.section-label');
+  if(!label) return;
+  label.addEventListener('click', () => {
+    sec.classList.toggle('collapsed');
+  });
+});
+
+normalizeState();
+loadState();
+</script>
+</body>
+</html>
