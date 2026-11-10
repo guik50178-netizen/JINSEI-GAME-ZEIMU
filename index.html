@@ -247,7 +247,7 @@
         <input type="checkbox" id="re-is-residence" style="width:auto;">
         自分が住むマイホーム（売却時に特別控除の対象）
       </label>
-      <button type="button" class="btn ghost" id="re-buy-btn" style="width:100%;">購入（所持金が足りない分は住宅ローン）</button>
+      <button type="button" class="btn ghost" id="re-buy-btn" style="width:100%;">購入（所持金が足りないときは全額住宅ローン）</button>
     </div>
 
     <div class="entry" style="margin-top:10px;">
@@ -294,11 +294,11 @@
           <input type="number" id="tr-cost" placeholder="0">
         </div>
         <div class="field">
-          <label>価値（ゴール時の売却額）</label>
-          <input type="number" id="tr-value" placeholder="0">
+          <label>価値（ゴール時の売却額。わからなければ空欄）</label>
+          <input type="number" id="tr-value" placeholder="空欄＝ゴール時に入力">
         </div>
       </div>
-      <div class="category-note">購入額は入手時に支払い、お宝はゴールまで保有します。ゴール時にすべて売却し、売却額の合計と購入額の合計の差額を一時所得として課税します。</div>
+      <div class="category-note">購入額は入手時に支払い、お宝はゴールまで保有します。ゴール時にすべて売却し、売却額の合計と購入額の合計の差額を一時所得として課税します。価値が空欄のお宝は、ゴールを押したときに売却額を入力します。</div>
       <button type="button" class="btn ghost" id="tr-add-btn" style="width:100%;">お宝を入手</button>
     </div>
     </div>
@@ -830,7 +830,7 @@ function netWorth(player){
     if(stock) value += stock.price * h.qty;
   });
   (player.realEstate || []).forEach(prop => { value += prop.cost; });
-  (player.treasures || []).forEach(t => { value += t.value; });
+  (player.treasures || []).forEach(t => { value += (t.value == null ? t.cost : t.value); });   // 価値が未定のお宝は購入額で数える
   value -= (player.loanBalance || 0);
   return value;
 }
@@ -970,13 +970,22 @@ function renderPlayerCards(){
       btn.onclick = () => {
         const p = findPlayer(btn.dataset.id);
         if(!p || p.finished) return;
-        const { treasure, g } = previewGoal(p);
+        // 価値が未定のお宝は、ここで売却額を入力する(キャンセルでゴールを中止)
+        const values = {};
+        for(const t of (p.treasures || []).filter(x => x.value == null)){
+          const ans = prompt(`お宝「${t.name}」の売却額を入力してください（購入額¥${fmt(t.cost)}）\n0以上の数字。やめる場合はキャンセルを押してください`);
+          if(ans === null) return;
+          const v = Number(String(ans).replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/[,，\s]/g, ''));
+          if(String(ans).trim() === '' || !Number.isFinite(v) || v < 0){ alert('売却額は0以上の数字で入力してください。ゴールを中止しました。'); return; }
+          values[t.id] = v;
+        }
+        const { treasure, g } = previewGoal(p, values);
         const treasureText = treasure
           ? `お宝${treasure.count}点を売却: 売却額¥${fmt(treasure.totalValue)}（購入額¥${fmt(treasure.totalCost)}、差益¥${fmt(treasure.gain)}、一時所得税¥${fmt(treasure.tax)}）\n`
           : '';
         if(!confirm(`${p.name}をゴールさせますか？\n${treasureText}純資産(自動計算・お宝売却後の現金＋保有株評価額など): ¥${fmt(g.nw)}\n基礎控除: ¥${fmt(g.deduction)}\n資産税額: ¥${fmt(g.tax)}\n税引後の最終純資産: ¥${fmt(g.net)}`)) return;
         snapshotForUndo();
-        doAction({ t: 'goal', playerId: p.id });
+        doAction({ t: 'goal', playerId: p.id, values });
         render(); saveState();
       };
     });
@@ -1247,6 +1256,15 @@ function renderTreasureList(){
   const rows = [];
   state.players.forEach(p => {
     (p.treasures || []).forEach(t => {
+      if(t.value == null){
+        rows.push(`
+        <div class="holding-row">
+          <span>${p.name}／${t.name}（購入額¥${fmt(t.cost)}／価値：ゴール時に入力）</span>
+          <span>差額 未定</span>
+        </div>
+      `);
+        return;
+      }
       const gain = t.value - t.cost;
       rows.push(`
         <div class="holding-row">
@@ -1378,16 +1396,20 @@ function computeGift(recipient, amount){
 // ゴール時にお宝をすべて売却する。購入額は入手時に支払い済みなので、ここでは売却額を受け取り、
 // 売却額の合計−購入額の合計(差益)を一時所得として課税する(特別控除は1回、損益は通算)。
 // histを渡すと履歴に記録する。売却したお宝がなければ何もしない。
-function settleTreasures(p, hist){
+// values: 価値が未定のお宝の売却額 {お宝のid: 売却額}。未定のものに売却額がなければ何も変更せず { missing } を返す。
+function settleTreasures(p, hist, values){
   const items = p.treasures || [];
   if(items.length === 0) return null;
-  const totalValue = items.reduce((sum, t) => sum + t.value, 0);
+  const resolved = items.map(t => ({ t, v: t.value != null ? t.value : (values && Number.isFinite(values[t.id]) && values[t.id] >= 0 ? values[t.id] : null) }));
+  const missing = resolved.filter(x => x.v === null).map(x => x.t);
+  if(missing.length > 0) return { missing };
+  const totalValue = resolved.reduce((sum, x) => sum + x.v, 0);
   const totalCost = items.reduce((sum, t) => sum + t.cost, 0);
   const res = computeEvent(p, 'onetime', totalValue, totalCost, null);
   p.yearOnetimeBase += Math.max(0, totalValue - totalCost - SPECIAL_DEDUCTION) / 2;
   p.cash += totalValue - res.taxAmount;
   if(hist){
-    items.forEach(t => hist.push({ label: `お宝売却（${t.name}）`, playerName: p.name, net: t.value, lap: state.lap, cat: 'treasure_sale', taxAmount: 0 }));
+    resolved.forEach(x => hist.push({ label: `お宝売却（${x.t.name}）`, playerName: p.name, net: x.v, lap: state.lap, cat: 'treasure_sale', taxAmount: 0 }));
     if(res.taxAmount > 0) hist.push({ label: 'お宝の売却益にかかる一時所得税', playerName: p.name, net: -res.taxAmount, lap: state.lap, cat: 'onetime', taxAmount: res.taxAmount });
   }
   p.treasures = [];
@@ -1395,10 +1417,10 @@ function settleTreasures(p, hist){
 }
 
 // ゴールした場合の見込み(お宝の売却→資産課税)。状態は変更しない。
-function previewGoal(p){
+function previewGoal(p, values){
   const sim = JSON.parse(JSON.stringify(p));
-  const treasure = settleTreasures(sim, null);
-  return { treasure, g: calcGoal(sim) };
+  const treasure = settleTreasures(sim, null, values);
+  return { treasure: treasure && !treasure.missing ? treasure : null, g: calcGoal(sim) };
 }
 
 // 1周ぶんの自動処理。使った市場の記録(tick)を返す。
@@ -1535,21 +1557,23 @@ const ACTIONS = {
     const costAmount = holding.avgCost * qty;
     const r = calcStockSale(player, saleAmount, costAmount, isComplex);
     applyStockSaleEffects(player, saleAmount, costAmount, isComplex);
-    player.cash += r.net;
+    // 取得原価は購入時に支払い済みなので、受け取るのは売却額(手数料控除後)から税を引いた額
+    const proceeds = saleAmount - r.tax;
+    player.cash += proceeds;
     holding.qty -= qty;
     if(holding.qty === 0) holding.avgCost = 0;
     player.holdings[stock.id] = holding;
-    state.history.push({ label: `株式売却（${stock.name} ${qty}株、手数料¥${fmt(fee)}控除後）`, playerName: player.name, net: r.net, lap: state.lap, cat: 'stock', taxAmount: r.tax });
+    state.history.push({ label: `株式売却（${stock.name} ${qty}株、手数料¥${fmt(fee)}控除後）`, playerName: player.name, net: proceeds, lap: state.lap, cat: 'stock', taxAmount: r.tax });
   },
   reBuy(ev){
     const player = findPlayer(ev.playerId); if(!player) return false;
     const price = ev.price;
-    const usedCash = Math.max(0, Math.min(player.cash, price));
+    const usedCash = player.cash >= price ? price : 0;   // 足りなければ全額ローン(所持金は減らさない)
     const shortfall = price - usedCash;
     player.realEstate.push({ id: ev.id, name: ev.name, cost: price, purchaseLap: state.lap, isPrimaryResidence: !!ev.isPrimaryResidence });
     player.cash -= usedCash;
     player.loanBalance = (player.loanBalance || 0) + shortfall;
-    state.history.push({ label: `不動産購入（${ev.name}${ev.isPrimaryResidence ? '・マイホーム' : ''}${shortfall > 0 ? '、住宅ローン¥' + fmt(shortfall) + '含む' : ''}）`, playerName: player.name, net: -usedCash, lap: state.lap, cat: 'realestate_buy', taxAmount: 0 });
+    state.history.push({ label: `不動産購入（${ev.name}${ev.isPrimaryResidence ? '・マイホーム' : ''}${shortfall > 0 ? '、全額住宅ローン¥' + fmt(shortfall) : ''}）`, playerName: player.name, net: -usedCash, lap: state.lap, cat: 'realestate_buy', taxAmount: 0 });
   },
   reSell(ev){
     const player = findPlayer(ev.playerId); if(!player) return false;
@@ -1582,14 +1606,15 @@ const ACTIONS = {
   },
   treasureAdd(ev){
     const p = findPlayer(ev.playerId); if(!p || p.finished) return false;
-    p.treasures.push({ id: ev.id, name: ev.name, cost: ev.cost, value: ev.value, acquiredLap: state.lap });
+    p.treasures.push({ id: ev.id, name: ev.name, cost: ev.cost, value: ev.value == null ? null : ev.value, acquiredLap: state.lap });
     p.cash -= ev.cost;
-    state.history.push({ label: `お宝入手（${ev.name}、価値¥${fmt(ev.value)}）`, playerName: p.name, net: -ev.cost, lap: state.lap, cat: 'treasure_buy', taxAmount: 0 });
+    state.history.push({ label: `お宝入手（${ev.name}、${ev.value == null ? '価値はゴール時に入力' : '価値¥' + fmt(ev.value)}）`, playerName: p.name, net: -ev.cost, lap: state.lap, cat: 'treasure_buy', taxAmount: 0 });
   },
   goal(ev){
     const p = findPlayer(ev.playerId);
     if(!p || p.finished) return false;
-    settleTreasures(p, state.history);
+    const st = settleTreasures(p, state.history, ev.values);
+    if(st && st.missing) return false;   // 売却額が未入力のお宝があるときはゴールしない(何も変更しない)
     const g = calcGoal(p);
     state.history.push({ label: 'ゴール精算（資産課税・自動）', playerName: p.name, net: -g.tax, lap: state.lap, cat: 'goal', taxAmount: g.tax });
     p.cash -= g.tax;
@@ -1672,11 +1697,9 @@ document.getElementById('re-buy-btn').onclick = () => {
   const price = Number(document.getElementById('re-price').value) || 0;
   const isPrimaryResidence = document.getElementById('re-is-residence').checked;
   if(!player || !name || price <= 0){ alert('プレイヤー・物件名・購入額を確認してください'); return; }
-  const usedCash = Math.max(0, Math.min(player.cash, price));
-  const shortfall = price - usedCash;
-  if(shortfall > 0){
-    const annualInterest = Math.round(shortfall * MORTGAGE_INTEREST_RATE);
-    if(!confirm(`所持金が足りません。不足分¥${fmt(shortfall)}を住宅ローンで借りますか？\n（金利${(MORTGAGE_INTEREST_RATE*100).toFixed(1)}%、毎周の利息は約¥${fmt(annualInterest)}）`)) return;
+  if(player.cash < price){
+    const annualInterest = Math.round(price * MORTGAGE_INTEREST_RATE);
+    if(!confirm(`所持金が足りません。購入額の全額¥${fmt(price)}を住宅ローンで借りますか？（所持金はそのまま残ります）\n金利${(MORTGAGE_INTEREST_RATE*100).toFixed(1)}%、毎周の利息は約¥${fmt(annualInterest)}`)) return;
   }
   snapshotForUndo();
   doAction({ t: 'reBuy', playerId: player.id, id: newId(), name, price, isPrimaryResidence });
@@ -1705,10 +1728,11 @@ document.getElementById('tr-add-btn').onclick = () => {
   const player = findPlayer(document.getElementById('tr-player').value);
   const name = document.getElementById('tr-name').value.trim() || 'お宝';
   const cost = Number(document.getElementById('tr-cost').value) || 0;
-  const value = Number(document.getElementById('tr-value').value) || 0;
+  const valueRaw = document.getElementById('tr-value').value.trim();
+  const value = valueRaw === '' ? null : Number(valueRaw);   // 空欄 = 価値は未定(ゴール時に売却額を入力)
   if(!player){ alert('プレイヤーを確認してください'); return; }
   if(player.finished){ alert('ゴール済みのプレイヤーはお宝を入手できません'); return; }
-  if(cost < 0 || value <= 0){ alert('購入額は0以上、価値は0より大きい数を入力してください'); return; }
+  if(cost < 0 || (value !== null && !(value > 0))){ alert('購入額は0以上、価値は空欄（ゴール時に入力）か0より大きい数を入力してください'); return; }
   if(player.cash < cost){ alert('所持金が足りません'); return; }
   snapshotForUndo();
   doAction({ t: 'treasureAdd', playerId: player.id, id: newId(), name, cost, value });
