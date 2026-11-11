@@ -298,7 +298,7 @@
           <input type="number" id="tr-value" placeholder="空欄＝ゴール時に入力">
         </div>
       </div>
-      <div class="category-note">購入額は入手時に支払い、お宝はゴールまで保有します。ゴール時にすべて売却し、売却額の合計と購入額の合計の差額を一時所得として課税します。価値が空欄のお宝は、ゴールを押したときに売却額を入力します。</div>
+      <div class="category-note">購入額は入手時に支払い（所持金が足りないときは、不足分が借金になり毎周<span id="debt-rate-text"></span>%の利息がかかります）、お宝はゴールまで保有します。ゴール時にすべて売却し、売却額の合計と購入額の合計の差額を一時所得として課税します。価値が空欄のお宝は、ゴールを押したときに売却額を入力します。</div>
       <button type="button" class="btn ghost" id="tr-add-btn" style="width:100%;">お宝を入手</button>
     </div>
     </div>
@@ -433,7 +433,7 @@ function calcRealEstateSale(property, saleAmount, currentLap){
 }
 const UNIT_SIZE = 10; // 株式売買の1単元あたりの株数
 const TRADING_FEE_RATE = 0.005; // 売買手数料率(0.5%)
-const DEBT_INTEREST_RATE = 0.15; // 所持金がマイナスの場合の借金利息(年率、消費者金融の上限金利相当)
+const DEBT_INTEREST_RATE = 0.05; // 所持金がマイナスの場合の借金利息(1周=1年あたり。住宅ローン2%より高く、放置すると損になる程度)
 const MORTGAGE_INTEREST_RATE = 0.02; // 住宅ローンの利息(1周=1年あたり、固定金利の住宅ローン相当)
 const CONSUMPTION_TAX_RATE = 0.10;
 
@@ -662,13 +662,19 @@ function newPlayer(name, cash, id){
     id: id || (Date.now()+Math.random().toString(36).slice(2,7)),
     name, cash: Number(cash)||0,
     nisaUsed: 0, lossCarry: 0, lossCarryExpiry: 0,
-    yearSalaryRaw: 0, yearOnetimeBase: 0, yearLifeInsurancePremium: 0,
+    yearSalaryRaw: 0, yearOnetimeBase: 0, yearOnetimeNet: 0, yearLifeInsurancePremium: 0,
     hasSpouse: false, numDependents: 0, isRetired: false,
     holdings: {}, realEstate: [], treasures: [], loanBalance: 0,
     careerSalaryTotal: 0, careerYears: 0, pensionAnnualAmount: 0,
     netWorthHistory: [Number(cash)||0], finished: false, finalNetWorth: null
   };
 }
+
+// 年間の一時所得の累計(特別控除前・損失は加算しない)。旧データには無いので、課税対象額から逆算して補う。
+function ensureOnetimeNet(p){
+  if(p.yearOnetimeNet === undefined) p.yearOnetimeNet = p.yearOnetimeBase > 0 ? p.yearOnetimeBase * 2 + SPECIAL_DEDUCTION : 0;
+}
+function onetimeBaseFromNet(net){ return Math.max(0, net - SPECIAL_DEDUCTION) / 2; }
 
 // 読み込んだ/取り込んだデータを現行の形式にそろえる
 function normalizeState(){
@@ -703,6 +709,7 @@ function normalizeState(){
     if(p.careerYears === undefined) p.careerYears = 0;
     if(p.pensionAnnualAmount === undefined) p.pensionAnnualAmount = 0;
     if(p.yearLifeInsurancePremium === undefined) p.yearLifeInsurancePremium = 0;
+    ensureOnetimeNet(p);
     if(!p.netWorthHistory) p.netWorthHistory = [p.cash];
     if(p.finished === undefined) p.finished = false;
     if(p.finalNetWorth === undefined) p.finalNetWorth = null;
@@ -838,7 +845,7 @@ function netWorth(player){
 function categoryNote(cat){
   const notes = {
     salary: '現役中は給与所得控除、老後入り後は公的年金等控除を適用。さらに基礎控除・配偶者控除・扶養控除を差し引いた課税所得に対し、今年の累計所得に基づく限界税率で所得税・住民税10%・復興特別所得税2.1%を課税します。',
-    onetime: `(受取額−取得原価−${fmtNum(SPECIAL_DEDUCTION)})÷2 を課税対象額とし、給与所得と合算した年間累計（人的控除差引後）に基づく限界税率で課税します。お宝は専用の「お宝」欄に登録すると、ゴール時にまとめて売却・課税されます。`,
+    onetime: `年間の一時所得（受取額−取得原価）の累計から特別控除${fmtNum(SPECIAL_DEDUCTION)}を1回だけ差し引き、その1/2を課税対象額とします。給与所得と合算した年間累計（人的控除差引後）に基づく限界税率で課税します。お宝は専用の「お宝」欄に登録すると、ゴール時にまとめて売却・課税されます（特別控除は同じ年の一時所得と共通の1回分です）。`,
     investor: `一律20%の分離課税。NISA生涯枠(${fmtNum(NISA_LIFETIME_LIMIT)})が残っていればその分は非課税です。貸したお金の利子を受け取る場合もこのカテゴリーで（利子所得も税率が同じため）。`,
     nontax: '保険金・元本の払い戻しなど。課税処理は発生しません。',
     gift: 'ご祝儀を受け取るプレイヤーを「対象プレイヤー」で選び、受取額の総額を入力します。ゴール前の他のプレイヤー全員で等分して支払います。受取は非課税、支払いは消費税・控除のない支出として記録されます。',
@@ -884,7 +891,7 @@ function updateFieldsForCategory(){
 function renderPlayerSelects(){
   const evSel = document.getElementById('ev-player');
   const current = evSel.value;
-  evSel.innerHTML = state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  evSel.innerHTML = state.players.filter(p => !p.finished).map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   if(current) evSel.value = current;
 }
 
@@ -1136,7 +1143,7 @@ function renderMarket(){
 
   const playerSel = document.getElementById('market-player');
   const currentPlayer = playerSel.value;
-  playerSel.innerHTML = state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  playerSel.innerHTML = state.players.filter(p => !p.finished).map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   if(currentPlayer) playerSel.value = currentPlayer;
 
   updateMarketPreview();
@@ -1205,7 +1212,7 @@ function renderRealEstateList(){
 
   const playerSel = document.getElementById('re-player');
   const currentPlayer = playerSel.value;
-  playerSel.innerHTML = state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  playerSel.innerHTML = state.players.filter(p => !p.finished).map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   if(currentPlayer) playerSel.value = currentPlayer;
 
   updateRealEstatePropertyOptions();
@@ -1252,6 +1259,8 @@ function syncEventPlayerToTurn(){
 }
 
 function renderTreasureList(){
+  const rateText = document.getElementById('debt-rate-text');
+  if(rateText) rateText.textContent = (DEBT_INTEREST_RATE * 100).toFixed(0);
   const wrap = document.getElementById('treasure-list');
   const rows = [];
   state.players.forEach(p => {
@@ -1277,7 +1286,7 @@ function renderTreasureList(){
   wrap.innerHTML = rows.length ? `<div class="history">${rows.join('')}</div>` : '<div class="empty">保有中のお宝はありません（ゴール時にまとめて売却されます）</div>';
   const sel = document.getElementById('tr-player');
   const current = sel.value;
-  sel.innerHTML = state.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  sel.innerHTML = state.players.filter(p => !p.finished).map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   if(current) sel.value = current;
 }
 
@@ -1328,8 +1337,10 @@ function computeEvent(player, cat, amount, cost, expenseType){
     lines.push(['復興特別所得税2.1%(限界分)', -r.reconstruction, 'tax']);
   } else if(cat === 'onetime'){
     label = '一時所得';
-    const base = Math.max(0, amount - cost - SPECIAL_DEDUCTION) / 2;
-    const oldBase = player.yearOnetimeBase, newBase = oldBase + base;
+    ensureOnetimeNet(player);
+    const gainIn = Math.max(0, amount - cost);   // 損失は加算しない
+    const oldBase = onetimeBaseFromNet(player.yearOnetimeNet), newBase = onetimeBaseFromNet(player.yearOnetimeNet + gainIn);
+    const base = newBase - oldBase;               // 今回の増分(特別控除は年間で1回だけ差し引く)
     const oldTi = taxableIncome(player.yearSalaryRaw, oldBase, player);
     const newTi = taxableIncome(player.yearSalaryRaw, newBase, player);
     const oldT = totalTaxFromTaxableIncome(oldTi), newT = totalTaxFromTaxableIncome(newTi);
@@ -1340,7 +1351,7 @@ function computeEvent(player, cat, amount, cost, expenseType){
     net = amount - cost - tax; taxAmount = tax;
     lines.push(['受取額', amount, '']);
     if(cost > 0) lines.push(['取得原価', -cost, '']);
-    lines.push(['課税対象額 (差引後÷2)', base, '']);
+    lines.push(['課税対象額の増分 (年間累計−特別控除)÷2', base, '']);
     lines.push(['所得税(限界分)', -incomeTax, 'tax']);
     lines.push(['住民税10%(限界分)', -residentTax, 'tax']);
     lines.push(['復興特別所得税2.1%(限界分)', -reconstruction, 'tax']);
@@ -1406,7 +1417,9 @@ function settleTreasures(p, hist, values){
   const totalValue = resolved.reduce((sum, x) => sum + x.v, 0);
   const totalCost = items.reduce((sum, t) => sum + t.cost, 0);
   const res = computeEvent(p, 'onetime', totalValue, totalCost, null);
-  p.yearOnetimeBase += Math.max(0, totalValue - totalCost - SPECIAL_DEDUCTION) / 2;
+  ensureOnetimeNet(p);
+  p.yearOnetimeNet += Math.max(0, totalValue - totalCost);
+  p.yearOnetimeBase = onetimeBaseFromNet(p.yearOnetimeNet);
   p.cash += totalValue - res.taxAmount;
   if(hist){
     resolved.forEach(x => hist.push({ label: `お宝売却（${x.t.name}）`, playerName: p.name, net: x.v, lap: state.lap, cat: 'treasure_sale', taxAmount: 0 }));
@@ -1431,6 +1444,7 @@ function advanceLap(tick){
   const dividendNotes = [];
   const debtNotes = [];
   state.players.forEach(p => {
+    if(p.finished) return;   // ゴール済みは、ゴール時の状態のまま固定する
     if(p.lossCarry > 0){
       p.lossCarryExpiry -= 1;
       if(p.lossCarryExpiry <= 0){ p.lossCarry = 0; p.lossCarryExpiry = 0; }
@@ -1441,6 +1455,7 @@ function advanceLap(tick){
     // 年が変わるので年間累計をリセット
     p.yearSalaryRaw = 0;
     p.yearOnetimeBase = 0;
+    p.yearOnetimeNet = 0;
     p.yearLifeInsurancePremium = 0;
     // 老後入り済みなら、年金を自動支給
     if(isComplex && p.isRetired && p.pensionAnnualAmount > 0){
@@ -1497,7 +1512,9 @@ function advanceLap(tick){
 const ACTIONS = {
   addPlayer(ev){ state.players.push(newPlayer(ev.name, ev.cash, ev.id)); },
   deletePlayer(ev){
+    const di = state.players.findIndex(p => p.id === ev.id);
     state.players = state.players.filter(p => p.id !== ev.id);
+    if(di >= 0 && di < state.currentPlayerIndex) state.currentPlayerIndex -= 1;   // 現在のターンの人が変わらないようにずらす
     if(state.currentPlayerIndex >= state.players.length) state.currentPlayerIndex = 0;
   },
   toggleSpouse(ev){ const p = findPlayer(ev.id); if(!p) return false; p.hasSpouse = !p.hasSpouse; },
@@ -1517,7 +1534,9 @@ const ACTIONS = {
       if(!player.isRetired) player.careerSalaryTotal += amount;
     }
     if(cat === 'onetime'){
-      player.yearOnetimeBase += Math.max(0, amount - cost - SPECIAL_DEDUCTION) / 2;
+      ensureOnetimeNet(player);
+      player.yearOnetimeNet += Math.max(0, amount - cost);
+      player.yearOnetimeBase = onetimeBaseFromNet(player.yearOnetimeNet);
     }
     if(cat === 'investor'){
       const nisaRoom = Math.max(0, NISA_LIFETIME_LIMIT - player.nisaUsed);
@@ -1622,12 +1641,15 @@ const ACTIONS = {
     p.finalNetWorth = g.net;
   },
   endTurn(ev){
-    if(state.players.length === 0) return false;
-    state.currentPlayerIndex += 1;
-    if(state.currentPlayerIndex >= state.players.length){
-      state.currentPlayerIndex = 0;
-      ev.tick = advanceLap(ev.tick);
-    }
+    const n = state.players.length;
+    if(n === 0 || state.players.every(p => p.finished)) return false;
+    let idx = state.currentPlayerIndex, wrapped = false;
+    do {
+      idx += 1;
+      if(idx >= n){ idx = 0; wrapped = true; }
+    } while(state.players[idx].finished);
+    state.currentPlayerIndex = idx;
+    if(wrapped) ev.tick = advanceLap(ev.tick);   // 全員(ゴール前の人)が1回ずつターンを終えたら1周
   }
 };
 
@@ -1733,7 +1755,12 @@ document.getElementById('tr-add-btn').onclick = () => {
   if(!player){ alert('プレイヤーを確認してください'); return; }
   if(player.finished){ alert('ゴール済みのプレイヤーはお宝を入手できません'); return; }
   if(cost < 0 || (value !== null && !(value > 0))){ alert('購入額は0以上、価値は空欄（ゴール時に入力）か0より大きい数を入力してください'); return; }
-  if(player.cash < cost){ alert('所持金が足りません'); return; }
+  if(player.cash < cost){
+    // 足りない分は借金(所持金がマイナス)になる。マイナスの間は毎周、借金の利息がかかる。
+    const after = player.cash - cost;
+    const interest = Math.round(-after * DEBT_INTEREST_RATE);
+    if(!confirm(`所持金¥${fmt(player.cash)}では足りません。購入すると所持金が¥${fmt(after)}（借金）になります。\n借金には毎周${(DEBT_INTEREST_RATE * 100).toFixed(0)}%の利息がかかります（約¥${fmt(interest)}）。購入しますか？`)) return;
+  }
   snapshotForUndo();
   doAction({ t: 'treasureAdd', playerId: player.id, id: newId(), name, cost, value });
   document.getElementById('tr-name').value = '';
@@ -1786,6 +1813,7 @@ document.getElementById('new-game-btn').onclick = () => {
 // ---------- ターン・プレイヤー ----------
 document.getElementById('end-turn-btn').onclick = () => {
   if(state.players.length === 0){ alert('プレイヤーを登録してください'); return; }
+  if(state.players.every(p => p.finished)){ alert('全員ゴール済みです'); return; }
   snapshotForUndo();
   doAction({ t: 'endTurn' });
   render();
@@ -1798,6 +1826,7 @@ document.getElementById('add-player').onclick = () => {
   const cashInput = document.getElementById('new-player-cash');
   const name = nameInput.value.trim();
   if(!name) return;
+  if(state.players.some(p => p.name === name)){ alert('同じ名前のプレイヤーがすでにいます。別の名前にしてください（履歴や集計は名前で区別しているため）'); return; }
   snapshotForUndo();
   doAction({ t: 'addPlayer', id: newId(), name, cash: Number(cashInput.value) || 0 });
   nameInput.value = ''; cashInput.value = '';
@@ -1817,6 +1846,7 @@ document.getElementById('calc-btn').onclick = () => {
   const amount = Number(document.getElementById('ev-amount').value) || 0;
   const cost = Number(document.getElementById('ev-cost').value) || 0;
   if(!player){ alert('プレイヤーを選択・登録してください'); return; }
+  if(amount < 0 || cost < 0){ alert('金額・取得原価は0以上で入力してください（間違えた入力は「元に戻す」で取り消せます）'); return; }
   let net, lines;
   if(cat === 'gift'){
     if(amount <= 0){ alert('ご祝儀の額を入力してください'); return; }
